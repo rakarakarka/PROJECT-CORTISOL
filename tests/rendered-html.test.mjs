@@ -36,6 +36,8 @@ test("server-renders the Project Cortisol experience", async () => {
   assert.match(html, /aria-label="Emotional controls"/i);
   assert.match(html, /type="range"[^>]*value="0\.28"/i);
   assert.match(html, /type="range"[^>]*value="0\.22"/i);
+  assert.match(html, /rel="icon"[^>]*href="\/favicon\.svg"/i);
+  assert.match(html, /rel="shortcut icon"[^>]*href="\/favicon\.svg"/i);
   assert.match(
     html,
     /property="og:image" content="http:\/\/localhost(?::3000)?\/og\.png"/i,

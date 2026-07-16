@@ -68,6 +68,8 @@ test("keeps the simulation deterministic and the starter disposable", async () =
   assert.match(page, /<CortisolExperience \/>/);
   assert.match(layout, /Project Cortisol \| Emotional Matter Study/);
   assert.match(layout, /\/og\.png/);
+  assert.match(packageJson, /"build": "next build"/);
+  assert.match(packageJson, /"build:sites": "vinext build"/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
 
   const previewFiles = await readdir(

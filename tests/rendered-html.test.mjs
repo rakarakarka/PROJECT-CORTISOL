@@ -1,11 +1,6 @@
 import assert from "node:assert/strict";
-import { access, readFile, readdir } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import test from "node:test";
-
-const developmentPreviewMeta =
-  /<meta(?=[^>]*\bname=["']codex-preview["'])(?=[^>]*\bcontent=["']development["'])[^>]*>/i;
-const templateRoot = new URL("../", import.meta.url);
-const previewRoot = new URL("../app/_sites-preview/", import.meta.url);
 
 async function render() {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
@@ -28,60 +23,53 @@ async function render() {
   );
 }
 
-test("server-renders the starter loading skeleton", async () => {
+test("server-renders the Project Cortisol experience", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
 
   const html = await response.text();
-  assert.match(html, developmentPreviewMeta);
-  assert.match(html, /<title>Your site is taking shape<\/title>/i);
-  assert.match(html, /Codex is working/);
-  assert.match(html, /Your site is taking shape/);
-  assert.match(html, /Codex is building the first version/);
-  assert.match(html, /react-loading-skeleton/);
-  assert.match(html, /role="status"/);
+  assert.match(html, /<title>Project Cortisol \| Emotional Matter Study<\/title>/i);
+  assert.match(html, /Project Cortisol emotional blend field/i);
+  assert.match(html, /<canvas[^>]*aria-hidden="true"/i);
+  assert.match(html, /The Calm/i);
+  assert.match(html, /aria-label="Emotional controls"/i);
+  assert.match(html, /type="range"[^>]*value="0\.28"/i);
+  assert.match(html, /type="range"[^>]*value="0\.22"/i);
+  assert.match(
+    html,
+    /property="og:image" content="http:\/\/localhost(?::3000)?\/og\.png"/i,
+  );
+  assert.doesNotMatch(html, /codex-preview|loading skeleton|Your site is taking shape/i);
 });
 
-test("keeps the loading skeleton scoped and disposable", async () => {
-  const [preview, css, page, layout, packageJson, files] = await Promise.all([
-    readFile(new URL("SkeletonPreview.tsx", previewRoot), "utf8"),
-    readFile(new URL("preview.css", previewRoot), "utf8"),
+test("keeps the simulation deterministic and the starter disposable", async () => {
+  const [experience, css, page, layout, packageJson] = await Promise.all([
+    readFile(new URL("../app/CortisolExperience.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../package.json", import.meta.url), "utf8"),
-    readdir(previewRoot),
   ]);
 
-  assert.deepEqual(files.sort(), ["SkeletonPreview.tsx", "preview.css"]);
-  assert.match(preview, /from "react-loading-skeleton"/);
-  assert.match(preview, /baseColor="#eceae7"/);
-  assert.match(preview, /highlightColor="#f9f8f6"/);
-  assert.match(preview, /duration=\{2\.8\}/);
-  assert.match(preview, /sites-skeleton-search-placeholder/);
-  assert.match(packageJson, /"react-loading-skeleton": "3\.5\.0"/);
+  assert.match(experience, /const FIXED_STEP = 1 \/ 60/);
+  assert.match(experience, /function mulberry32/);
+  assert.match(experience, /new Float32Array/);
+  assert.match(experience, /trailHead: new Uint8Array/);
+  assert.match(experience, /requestAnimationFrame\(frame\)/);
+  assert.match(experience, /function cornerWeights/);
+  assert.match(experience, /prefers-reduced-motion: reduce/);
 
-  const shellIndex = preview.indexOf('className="sites-skeleton-shell"');
-  const statusIndex = preview.indexOf('className="sites-skeleton-status"');
-  assert.ok(shellIndex >= 0 && statusIndex > shellIndex);
-  assert.match(css, /position:\s*fixed/);
-  assert.match(css, /inset:\s*0/);
-  assert.match(css, /opacity:\s*0\.52/);
-  assert.match(css, /prefers-reduced-motion:\s*reduce/);
-  assert.doesNotMatch(css, /#020617|canvas|pets|progress/i);
-  assert.doesNotMatch(
-    preview,
-    /loading-spinner|status-mark|status-progress|canvas|cookie|random/i,
+  assert.match(css, /@media \(max-width: 840px\)/);
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
+  assert.match(css, /touch-action:\s*none/);
+  assert.match(page, /<CortisolExperience \/>/);
+  assert.match(layout, /Project Cortisol \| Emotional Matter Study/);
+  assert.match(layout, /\/og\.png/);
+  assert.doesNotMatch(packageJson, /react-loading-skeleton/);
+
+  const previewFiles = await readdir(
+    new URL("../app/_sites-preview", import.meta.url),
   );
-
-  assert.match(page, /export const metadata:\s*Metadata/);
-  assert.match(page, /"codex-preview": "development"/);
-  assert.match(page, /<SkeletonPreview \/>/);
-  assert.match(layout, /title:\s*"Starter Project"/);
-  assert.doesNotMatch(layout, /codex-preview|_sites-preview|themeColor|\bViewport\b/);
-  assert.doesNotMatch(css, /(^|\s)(html|body)\s*\{/m);
-
-  await assert.rejects(
-    access(new URL("public/_sites-preview", templateRoot)),
-  );
+  assert.deepEqual(previewFiles, []);
 });

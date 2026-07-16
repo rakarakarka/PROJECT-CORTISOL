@@ -27,6 +27,8 @@ export const VELOCITY_SHADER = /* glsl */ `
   uniform float uNoiseFrequency;
   uniform float uEntropy;
   uniform float uScrollProgress;
+  uniform float uIsCagedSwarm;
+  uniform vec3 uCageBounds;
 
   vec3 curlField(vec3 p, float t, float f) {
     float scale = 1.2 + f * 4.5;
@@ -43,6 +45,12 @@ export const VELOCITY_SHADER = /* glsl */ `
     vec3 position = texture2D(texturePosition, uv).xyz;
     vec3 velocity = texture2D(textureVelocity, uv).xyz;
     vec3 origin = texture2D(uOriginTexture, uv).xyz;
+
+    if (uIsCagedSwarm > 0.5) {
+      if (abs(position.x) >= uCageBounds.x && velocity.x * sign(position.x) > 0.0) velocity.x *= -0.96;
+      if (abs(position.y) >= uCageBounds.y && velocity.y * sign(position.y) > 0.0) velocity.y *= -0.96;
+      if (abs(position.z) >= uCageBounds.z && velocity.z * sign(position.z) > 0.0) velocity.z *= -0.96;
+    }
 
     float respiratory = sin(6.28318530718 * uTime / 4.5);
     float vascular = cos(6.28318530718 * uTime / 1.2);
@@ -63,6 +71,12 @@ export const VELOCITY_SHADER = /* glsl */ `
     vec3 curl = curlField(position, uTime, uNoiseFrequency);
     force += curl * (0.08 + uEntropy * 1.55 + anger * 0.5);
 
+    if (uIsCagedSwarm > 0.5) {
+      vec3 cageRatio = abs(position) / uCageBounds;
+      float wallPressure = smoothstep(0.72, 1.0, max(cageRatio.x, max(cageRatio.y, cageRatio.z)));
+      force -= normalize(position + vec3(0.0001)) * wallPressure * 16.0;
+    }
+
     float trapped = anger * disappointment;
     float pressure = smoothstep(0.78, 1.0, sin(uTime * 3.2 + uv.x * 67.0 + uv.y * 41.0));
     force += radial * trapped * pressure * 5.5;
@@ -76,7 +90,7 @@ export const VELOCITY_SHADER = /* glsl */ `
     velocity *= resistance;
 
     float speed = length(velocity);
-    float limit = max(0.28, uVelocityMax * 0.38);
+    float limit = max(0.28, uVelocityMax);
     if (speed > limit) velocity *= limit / speed;
     gl_FragColor = vec4(velocity, 1.0);
   }
@@ -89,30 +103,53 @@ export const PARTICLE_VERTEX_SHADER = /* glsl */ `
   uniform float uScrollProgress;
   uniform float uPointScale;
   uniform vec2 uCoordinates;
+  uniform float uActiveParticleCount;
+  attribute float particleIndex;
   varying float vEnergy;
   varying float vDepth;
 
-  vec3 loadingSpiral(vec2 refUv) {
-    float index = refUv.y + refUv.x / 256.0;
-    float angle = index * 78.0 + uTime * 0.3;
-    float radius = pow(index, 0.62) * 2.8;
-    return vec3(cos(angle) * radius, sin(angle) * radius, (index - 0.5) * 0.8);
+  vec3 loadingSpiral() {
+    float index = particleIndex / 25000.0;
+    float deceleration = exp(-0.05 * max(0.0, (uLoadPhase - 0.8) * 260.0));
+    float angle = index * 92.0 + uTime * 8.4 * deceleration;
+    float radius = 0.24 + pow(index, 0.58) * 3.8;
+    return vec3(cos(angle) * radius, sin(angle) * radius, 0.0);
   }
 
   void main() {
+    if (particleIndex >= uActiveParticleCount) {
+      gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+      gl_PointSize = 0.0;
+      return;
+    }
     vec3 simulated = texture2D(uPositionTexture, uv).xyz;
-    vec3 spiral = loadingSpiral(uv);
-    float reveal = smoothstep(0.88, 1.0, uLoadPhase);
+    vec3 spiral = loadingSpiral();
+    float reveal = smoothstep(0.82, 1.0, uLoadPhase);
     float inversion = smoothstep(0.985, 1.0, uLoadPhase) * (1.0 - smoothstep(1.0, 1.08, uLoadPhase));
     vec3 position = mix(spiral, simulated, reveal);
     position += normalize(simulated + vec3(0.001)) * inversion * 1.4;
+
+    float topAxis = smoothstep(0.72, 1.0, uCoordinates.y) * (1.0 - smoothstep(0.04, 0.2, abs(uCoordinates.x)));
+    position.xz *= 1.0 - topAxis * 0.92;
+
+    float leftAxis = smoothstep(0.72, 1.0, -uCoordinates.x) * (1.0 - smoothstep(0.04, 0.2, abs(uCoordinates.y)));
+    position.y = mix(position.y, -2.25 + sin(particleIndex * 0.21 + uTime) * 0.018, leftAxis);
+    position.z *= 1.0 - leftAxis * 0.9;
+
+    float bottomAxis = smoothstep(0.72, 1.0, -uCoordinates.y) * (1.0 - smoothstep(0.04, 0.2, abs(uCoordinates.x)));
+    float cylinderRadius = max(0.18, floor(length(position.xz) * 4.0) / 4.0);
+    position.xz = mix(position.xz, normalize(position.xz + vec2(0.001)) * cylinderRadius, bottomAxis * 0.82);
+
+    float rightAxis = smoothstep(0.72, 1.0, uCoordinates.x) * (1.0 - smoothstep(0.04, 0.2, abs(uCoordinates.y)));
+    position.x *= 1.0 + rightAxis * 1.8;
+    position.y = mix(position.y, abs(position.y) * 0.3 + 0.65, rightAxis);
     position.y -= smoothstep(0.18, 0.38, uScrollProgress) * 1.2;
     position.z -= smoothstep(0.2, 0.5, uScrollProgress) * 2.5;
 
     vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
     gl_Position = projectionMatrix * mvPosition;
     float expression = max(uCoordinates.y, 0.0);
-    gl_PointSize = clamp(uPointScale * (2.1 + expression * 2.8) / -mvPosition.z, 0.7, 4.8);
+    gl_PointSize = clamp(uPointScale * (1.65 + expression * 1.6) / -mvPosition.z, 0.65, 3.8);
     vEnergy = expression;
     vDepth = clamp((-mvPosition.z - 2.0) / 10.0, 0.0, 1.0);
   }

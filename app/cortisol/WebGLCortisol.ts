@@ -3,11 +3,9 @@ import { GPUComputationRenderer } from "three/examples/jsm/misc/GPUComputationRe
 import { AfterimagePass } from "three/examples/jsm/postprocessing/AfterimagePass.js";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
-import type { ProjectCortisolState } from "./model";
-import { ORIGIN_PROFILE, STATE_PROFILES } from "./profiles";
+import { GLOBAL_PARTICLE_CAP, PRELOADER_PARTICLE_COUNT, type ProjectCortisolGlobalState } from "./model";
+import { MOOD_VISUALS, resolveProfile, samplePhysics } from "./profiles";
 import {
-  ARTWORK_FRAGMENT_SHADER,
-  ARTWORK_VERTEX_SHADER,
   PARTICLE_FRAGMENT_SHADER,
   PARTICLE_VERTEX_SHADER,
   POSITION_SHADER,
@@ -61,11 +59,11 @@ export class WebGLCortisol {
   private particles: THREE.Points;
   private composer: EffectComposer;
   private afterimagePass: AfterimagePass;
-  private artworkPlanes: THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial>[] = [];
   private dimensions = { width: 1, height: 1 };
+  private cageBounds = new THREE.Vector3(3.2, 3.2, 2.2);
   private failed = false;
 
-  constructor(canvas: HTMLCanvasElement, reducedMotion: boolean) {
+  constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({
       canvas,
       alpha: false,
@@ -78,7 +76,7 @@ export class WebGLCortisol {
     this.renderer.autoClear = true;
     this.camera.position.z = 7;
 
-    const computeSize = reducedMotion || window.innerWidth < 720 ? 128 : 256;
+    const computeSize = 160;
     this.gpu = new GPUComputationRenderer(computeSize, computeSize, this.renderer);
     this.gpu.setDataType(THREE.HalfFloatType);
     const originTexture = createTorusKnotTexture(this.gpu, computeSize);
@@ -101,6 +99,8 @@ export class WebGLCortisol {
       uNoiseFrequency: { value: 0.06 },
       uEntropy: { value: 0.025 },
       uScrollProgress: { value: 0 },
+      uIsCagedSwarm: { value: 0 },
+      uCageBounds: { value: this.cageBounds },
     });
 
     const initError = this.gpu.init();
@@ -110,15 +110,18 @@ export class WebGLCortisol {
     }
 
     const geometry = new THREE.BufferGeometry();
-    const count = computeSize * computeSize;
+    const count = PRELOADER_PARTICLE_COUNT;
     const positions = new Float32Array(count * 3);
     const references = new Float32Array(count * 2);
+    const particleIndices = new Float32Array(count);
     for (let index = 0; index < count; index += 1) {
       references[index * 2] = (index % computeSize + 0.5) / computeSize;
       references[index * 2 + 1] = (Math.floor(index / computeSize) + 0.5) / computeSize;
+      particleIndices[index] = index;
     }
     geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
     geometry.setAttribute("uv", new THREE.BufferAttribute(references, 2));
+    geometry.setAttribute("particleIndex", new THREE.BufferAttribute(particleIndices, 1));
 
     this.particleMaterial = new THREE.ShaderMaterial({
       uniforms: {
@@ -128,6 +131,7 @@ export class WebGLCortisol {
         uScrollProgress: { value: 0 },
         uPointScale: { value: Math.min(window.devicePixelRatio || 1, 1.5) * 11 },
         uCoordinates: { value: new THREE.Vector2() },
+        uActiveParticleCount: { value: PRELOADER_PARTICLE_COUNT },
         uColorA: { value: new THREE.Color(0xf7fcff) },
         uColorB: { value: new THREE.Color(0x567de8) },
         uOpacity: { value: 1 },
@@ -147,37 +151,6 @@ export class WebGLCortisol {
     this.composer.addPass(new RenderPass(this.scene, this.camera));
     this.afterimagePass = new AfterimagePass(0.88);
     this.composer.addPass(this.afterimagePass);
-
-    new THREE.TextureLoader().load("/og.png", (texture) => {
-      texture.colorSpace = THREE.SRGBColorSpace;
-      texture.wrapS = texture.wrapT = THREE.ClampToEdgeWrapping;
-      this.createArtworkPlanes(texture);
-    });
-  }
-
-  private createArtworkPlanes(texture: THREE.Texture) {
-    const geometry = new THREE.PlaneGeometry(2.72, 1.43, 42, 18);
-    STATE_PROFILES.forEach((_, index) => {
-      const material = new THREE.ShaderMaterial({
-        uniforms: {
-          uArtworkTexture: { value: texture },
-          uScrollVelocity: { value: 0 },
-          uTime: { value: 0 },
-          uOpacity: { value: 0 },
-          uIndex: { value: index },
-        },
-        vertexShader: ARTWORK_VERTEX_SHADER,
-        fragmentShader: ARTWORK_FRAGMENT_SHADER,
-        transparent: true,
-        depthTest: false,
-        depthWrite: false,
-        side: THREE.DoubleSide,
-      });
-      const plane = new THREE.Mesh(geometry, material);
-      plane.renderOrder = 2 + index;
-      this.artworkPlanes.push(plane);
-      this.scene.add(plane);
-    });
   }
 
   resize(width: number, height: number) {
@@ -186,11 +159,19 @@ export class WebGLCortisol {
     this.composer.setSize(width, height);
     this.camera.aspect = width / Math.max(1, height);
     this.camera.updateProjectionMatrix();
+    const visibleHeight = 2 * Math.tan(THREE.MathUtils.degToRad(this.camera.fov * 0.5)) * this.camera.position.z;
+    const visibleWidth = visibleHeight * this.camera.aspect;
+    const pixelRadius = Math.min(400, width * 0.42, height * 0.42);
+    this.cageBounds.set(
+      (pixelRadius / Math.max(1, width)) * visibleWidth,
+      (pixelRadius / Math.max(1, height)) * visibleHeight,
+      2.2,
+    );
     this.particleMaterial.uniforms.uPointScale.value = Math.min(window.devicePixelRatio || 1, 1.5) * 11;
   }
 
   render(
-    state: ProjectCortisolState,
+    state: ProjectCortisolGlobalState,
     delta: number,
     elapsed: number,
     scrollProgress: number,
@@ -199,59 +180,39 @@ export class WebGLCortisol {
   ) {
     if (this.failed) return;
     const step = Math.min(0.034, Math.max(CLOCK_EPSILON, delta));
-    const physics = state.engineConstants;
+    const { x, y } = state.inputCoordinates;
+    const physics = samplePhysics(x, y);
     const velocityUniforms = this.velocityVariable.material.uniforms;
     this.positionVariable.material.uniforms.uDelta.value = step;
     velocityUniforms.uTime.value = elapsed;
     velocityUniforms.uDelta.value = step;
-    velocityUniforms.uCoordinates.value.set(state.coordinates.x, state.coordinates.y);
+    velocityUniforms.uCoordinates.value.set(x, y);
     velocityUniforms.uVelocityMax.value += (physics.velocityMax - velocityUniforms.uVelocityMax.value) * 0.055;
     velocityUniforms.uViscosity.value += (physics.viscosity - velocityUniforms.uViscosity.value) * 0.055;
-    velocityUniforms.uGravity.value += (physics.gravityField - velocityUniforms.uGravity.value) * 0.055;
-    velocityUniforms.uDamping.value += (physics.dampingCoefficient - velocityUniforms.uDamping.value) * 0.055;
-    velocityUniforms.uNoiseFrequency.value += (physics.noiseFrequency - velocityUniforms.uNoiseFrequency.value) * 0.055;
-    velocityUniforms.uEntropy.value += (physics.entropyFactor - velocityUniforms.uEntropy.value) * 0.055;
+    velocityUniforms.uGravity.value += (physics.gravity - velocityUniforms.uGravity.value) * 0.055;
+    velocityUniforms.uDamping.value += (physics.damping - velocityUniforms.uDamping.value) * 0.055;
+    velocityUniforms.uNoiseFrequency.value += (physics.curlNoiseFrequency - velocityUniforms.uNoiseFrequency.value) * 0.055;
+    const targetEntropy = 0.025 + Math.max(y, 0) * 0.55 + Math.max(y, 0) * Math.max(-x, 0) * 0.2;
+    velocityUniforms.uEntropy.value += (targetEntropy - velocityUniforms.uEntropy.value) * 0.055;
     velocityUniforms.uScrollProgress.value = scrollProgress;
+    velocityUniforms.uIsCagedSwarm.value += ((physics.isCagedSwarm ? 1 : 0) - velocityUniforms.uIsCagedSwarm.value) * 0.12;
+    velocityUniforms.uCageBounds.value.copy(this.cageBounds);
     this.gpu.compute();
 
-    const profile = state.telemetryMetadata.cortisolIndexCode;
-    const index = STATE_PROFILES.findIndex((item) => item.indexCode === profile);
-    const active = index >= 0 ? STATE_PROFILES[index] : ORIGIN_PROFILE;
+    const active = resolveProfile(x, y);
+    const visual = MOOD_VISUALS[active.id];
     const particleUniforms = this.particleMaterial.uniforms;
     particleUniforms.uPositionTexture.value = this.gpu.getCurrentRenderTarget(this.positionVariable).texture;
     particleUniforms.uTime.value = elapsed;
     particleUniforms.uLoadPhase.value = loadPhase;
     particleUniforms.uScrollProgress.value = scrollProgress;
-    particleUniforms.uCoordinates.value.set(state.coordinates.x, state.coordinates.y);
-    particleUniforms.uColorA.value.setRGB(...active.colorA);
-    particleUniforms.uColorB.value.setRGB(...active.colorB);
-    const galleryOpacity = smoothstep(0.18, 0.34, scrollProgress) * (1 - smoothstep(0.86, 0.97, scrollProgress));
-    particleUniforms.uOpacity.value = 1 - galleryOpacity * 0.76;
+    particleUniforms.uCoordinates.value.set(x, y);
+    particleUniforms.uActiveParticleCount.value = loadPhase < 1 ? PRELOADER_PARTICLE_COUNT : GLOBAL_PARTICLE_CAP;
+    particleUniforms.uColorA.value.setRGB(...visual.colorA);
+    particleUniforms.uColorB.value.setRGB(...visual.colorB);
+    particleUniforms.uOpacity.value = 1 - smoothstep(0.25, 0.6, scrollProgress) * 0.7 - smoothstep(0.6, 0.82, scrollProgress) * 0.18;
 
-    const widthFactor = this.dimensions.width / Math.max(1, this.dimensions.height);
-    const scattered = scrollProgress < 0.3;
-    const focusProgress = Math.min(0.999, Math.max(0, (scrollProgress - 0.2) / 0.68));
-    const focusIndex = Math.floor(focusProgress * STATE_PROFILES.length);
-    this.artworkPlanes.forEach((plane, planeIndex) => {
-      const column = planeIndex % 2;
-      const row = Math.floor(planeIndex / 2);
-      const x = (column === 0 ? -1 : 1) * Math.min(3.25, 2.1 * widthFactor);
-      const y = 4.0 - row * 2.65;
-      const entrance = smoothstep(0.18 + planeIndex * 0.012, 0.44 + planeIndex * 0.012, scrollProgress);
-      const isFocused = planeIndex === focusIndex;
-      const targetX = scattered ? x : isFocused ? 0 : x * 1.65;
-      const targetY = scattered ? y : isFocused ? 0 : y * 1.3;
-      const targetZ = scattered ? -4.8 + entrance * 2.8 : isFocused ? -0.2 : -5.8;
-      plane.position.x += (targetX - plane.position.x) * 0.08;
-      plane.position.y += (targetY - plane.position.y) * 0.08;
-      plane.position.z += (targetZ - plane.position.z) * 0.08;
-      plane.rotation.z = (planeIndex % 2 ? -1 : 1) * 0.025 * Math.min(1, Math.abs(scrollVelocity));
-      plane.material.uniforms.uTime.value = elapsed;
-      plane.material.uniforms.uScrollVelocity.value = THREE.MathUtils.clamp(scrollVelocity * 0.12, -2.5, 2.5);
-      plane.material.uniforms.uOpacity.value = galleryOpacity * (scattered ? 0.16 : isFocused ? 0.3 : 0.015) * entrance;
-    });
-
-    const disappointment = Math.max(-state.coordinates.x, 0);
+    const disappointment = Math.max(-x, 0);
     this.afterimagePass.uniforms.damp.value = 0.88 + disappointment * 0.07;
     this.composer.render();
   }
@@ -259,10 +220,6 @@ export class WebGLCortisol {
   dispose() {
     this.particles.geometry.dispose();
     this.particleMaterial.dispose();
-    this.artworkPlanes.forEach((plane) => {
-      plane.geometry.dispose();
-      plane.material.dispose();
-    });
     this.composer.dispose();
     this.renderer.dispose();
   }

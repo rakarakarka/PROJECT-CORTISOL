@@ -1,76 +1,68 @@
-export type CursorStyle =
-  | "default_crosshair"
-  | "fuse_needle"
-  | "limbo_bar"
-  | "stasis_brackets"
-  | "horizon_frame";
-
-export type BlendQuadrant =
+export type MoodQuadrant =
   | "I"
   | "II"
   | "III"
   | "IV"
-  | "TOP_AXIS"
-  | "LEFT_AXIS"
-  | "BOTTOM_AXIS"
-  | "RIGHT_AXIS"
-  | "ORIGIN";
+  | "AXIS_TOP"
+  | "AXIS_LEFT"
+  | "AXIS_BOTTOM"
+  | "AXIS_RIGHT";
 
-export interface EngineConstants {
+export interface MoodPhysicsConfig {
+  maxParticles: number;
   velocityMax: number;
   viscosity: number;
-  gravityField: number;
-  dampingCoefficient: number;
-  noiseFrequency: number;
-  entropyFactor: number;
+  gravity: number;
+  damping: number;
+  curlNoiseFrequency: number;
+  isCagedSwarm: boolean;
 }
 
-export interface ProjectCortisolState {
-  coordinates: {
+export interface MoodProfile {
+  id: string;
+  quadrant: MoodQuadrant;
+  title: string;
+  subtitle: string;
+  visceralDescription: string;
+  biometricHUD: string;
+  imageAssetPath: string;
+  physicsConfig: MoodPhysicsConfig;
+}
+
+export interface ProjectCortisolGlobalState {
+  inputCoordinates: {
     x: number;
     y: number;
   };
-  engineConstants: EngineConstants;
-  cursorProperties: {
-    visualStyle: CursorStyle;
-    xLocked: boolean;
-    yLocked: boolean;
-    elasticStretch: number;
+  scrollState: {
+    currentStage: "SANDBOX" | "CLUSTER_ASSEMBLY" | "SINGLE_FOCUS";
+    progress: number;
+    activeFocusMoodId: string | null;
   };
-  artworkRegistry: Array<{
-    stateId: string;
-    assetUrl: string;
-    blendQuadrant: BlendQuadrant;
-    currentDisplacementWeight: number;
-    opacityAlpha: number;
-  }>;
-  telemetryMetadata: {
-    stateLabel: string;
-    cortisolIndexCode: string;
-    somaticDescriptionText: string;
-    physiologicalSystemMetrics: string;
+  themeConfig: {
+    baseBg: "#000000";
+    gridLineColor: "rgba(255, 255, 255, 0.08)";
+    primaryText: "#FFFFFF";
+    secondaryText: "rgba(255, 255, 255, 0.6)";
   };
 }
 
-export interface StateProfile {
-  id: string;
-  quadrant: BlendQuadrant;
-  eyebrow: string;
-  label: string;
-  shortLabel: string;
-  indexCode: string;
-  telemetry: string;
-  description: string;
-  systemMetrics: string;
-  cursor: CursorStyle;
-  physics: EngineConstants;
+export interface MoodVisualConfig {
+  cursorStyle: "default_crosshair" | "fuse_needle" | "limbo_bar" | "stasis_brackets" | "horizon_frame";
   colorA: [number, number, number];
   colorB: [number, number, number];
 }
 
 export const AXIS_TOLERANCE = 0.05;
+export const GLOBAL_PARTICLE_CAP = 15_000;
+export const PRELOADER_PARTICLE_COUNT = 25_000;
 
-export const ARTWORK_ASSET = "/og.png";
+export const THEME_CONFIG: ProjectCortisolGlobalState["themeConfig"] = {
+  baseBg: "#000000",
+  gridLineColor: "rgba(255, 255, 255, 0.08)",
+  primaryText: "#FFFFFF",
+  secondaryText: "rgba(255, 255, 255, 0.6)",
+};
 
 export const PRODUCTION_SCROLL_CONFIGURATION = {
   lerp: 0.075,

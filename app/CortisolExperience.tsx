@@ -4,8 +4,10 @@ import Image from "next/image";
 import Lenis from "lenis";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { Pause, Play, RotateCcw } from "lucide-react";
+import { SplitText } from "gsap/SplitText";
+import { ArrowDown, ChevronLeft, ChevronRight, Pause, Play, RotateCcw } from "lucide-react";
 import {
+  type CSSProperties,
   type ChangeEvent,
   type PointerEvent as ReactPointerEvent,
   useCallback,
@@ -14,43 +16,97 @@ import {
   useRef,
   useState,
 } from "react";
-import { type ProjectCortisolState, PRODUCTION_SCROLL_CONFIGURATION } from "./cortisol/model";
-import { clampCoordinate, createState, ORIGIN_PROFILE, resolveProfile, STATE_PROFILES } from "./cortisol/profiles";
+import { PRODUCTION_SCROLL_CONFIGURATION, type MoodProfile, type ProjectCortisolGlobalState } from "./cortisol/model";
+import {
+  clampCoordinate,
+  createState,
+  getMoodIndex,
+  MOOD_VISUALS,
+  ORIGIN_PROFILE,
+  resolveProfile,
+  STATE_PROFILES,
+} from "./cortisol/profiles";
 import { WebGLCortisol } from "./cortisol/WebGLCortisol";
 
-const LOAD_DURATION = 2100;
+const LOAD_DURATION = 2800;
+const CLUSTER_LAYOUT = [
+  { x: 4, y: 6, size: 23, rotate: -3 },
+  { x: 30, y: 2, size: 19, rotate: 2 },
+  { x: 52, y: 10, size: 24, rotate: -1 },
+  { x: 75, y: 4, size: 20, rotate: 3 },
+  { x: 12, y: 52, size: 19, rotate: 2 },
+  { x: 34, y: 44, size: 25, rotate: -2 },
+  { x: 61, y: 52, size: 18, rotate: 1 },
+  { x: 78, y: 43, size: 22, rotate: -3 },
+] as const;
+
+const FOCUS_SUBHEADS: Record<string, string> = {
+  "01_EUPHORIC_ECSTASY": "THE CONVERGENCE OF HIGH ENERGY & SURPASSED EXPECTATIONS",
+  "02_BOILING_TAR": "THE CONVERGENCE OF HIGH ENERGY & UNMET EXPECTATIONS",
+  "03_SOMBER_GRACE": "THE CONVERGENCE OF LOW ENERGY & UNMET EXPECTATIONS",
+  "04_PRISTINE_NIRVANA": "THE CONVERGENCE OF LOW ENERGY & FULFILLED EXPECTATIONS",
+  "05_THE_FUSE": "PURE HIGH ENERGY WITHOUT AN EXPECTED OUTCOME",
+  "06_THE_LIMBO": "PURE DISAPPOINTMENT WITHOUT AN OUTWARD RESPONSE",
+  "07_THE_STASIS": "PURE SERENITY WITHOUT EXPECTATION",
+  "08_THE_HORIZON": "PURE FULFILLMENT WITHOUT URGENCY",
+};
 
 function formatCoordinate(value: number) {
   const normalized = Math.abs(value) < 0.005 ? 0 : value;
   return `${normalized >= 0 ? "+" : ""}${normalized.toFixed(2)}`;
 }
 
-function applyCoordinateState(x: number, y: number) {
-  return createState(clampCoordinate(x), clampCoordinate(y));
+function moodNumber(index: number) {
+  return String(index + 1).padStart(2, "0");
 }
 
 export function CortisolExperience() {
   const shellRef = useRef<HTMLElement>(null);
+  const narrativeRef = useRef<HTMLElement>(null);
   const interactionRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const cursorRef = useRef<HTMLDivElement>(null);
-  const stateRef = useRef<ProjectCortisolState>(createState());
+  const focusDescriptionRef = useRef<HTMLParagraphElement>(null);
+  const lenisRef = useRef<Lenis | null>(null);
+  const scrollTriggerRef = useRef<ScrollTrigger | null>(null);
+  const stateRef = useRef<ProjectCortisolGlobalState>(createState());
   const scrollRef = useRef({ progress: 0, velocity: 0 });
   const pausedRef = useRef(false);
   const loadedRef = useRef(false);
-  const pointerRef = useRef({ active: false, x: 0, y: 0 });
-  const [state, setState] = useState<ProjectCortisolState>(() => createState());
+  const pointerRef = useRef({ active: false });
+  const swipeStartRef = useRef<number | null>(null);
+  const [state, setState] = useState<ProjectCortisolGlobalState>(() => createState());
   const [paused, setPaused] = useState(false);
   const [loadPercent, setLoadPercent] = useState(0);
   const [loaded, setLoaded] = useState(false);
-  const [activeArtwork, setActiveArtwork] = useState(0);
+
   const profile = useMemo(
-    () => resolveProfile(state.coordinates.x, state.coordinates.y),
-    [state.coordinates.x, state.coordinates.y],
+    () => resolveProfile(state.inputCoordinates.x, state.inputCoordinates.y),
+    [state.inputCoordinates.x, state.inputCoordinates.y],
   );
+  const focusedProfile = useMemo<MoodProfile>(() => {
+    const selected = state.scrollState.activeFocusMoodId;
+    return STATE_PROFILES.find((item) => item.id === selected)
+      ?? (profile.id === ORIGIN_PROFILE.id ? STATE_PROFILES[0] : profile as MoodProfile);
+  }, [profile, state.scrollState.activeFocusMoodId]);
+  const focusIndex = getMoodIndex(focusedProfile.id);
+  const cursorStyle = MOOD_VISUALS[profile.id].cursorStyle;
 
   const commitCoordinates = useCallback((x: number, y: number) => {
-    const next = applyCoordinateState(x, y);
+    const nextX = clampCoordinate(x);
+    const nextY = clampCoordinate(y);
+    const nextProfile = resolveProfile(nextX, nextY);
+    const current = stateRef.current;
+    const next: ProjectCortisolGlobalState = {
+      ...current,
+      inputCoordinates: { x: nextX, y: nextY },
+      scrollState: {
+        ...current.scrollState,
+        activeFocusMoodId: nextProfile.id === ORIGIN_PROFILE.id
+          ? current.scrollState.activeFocusMoodId
+          : nextProfile.id,
+      },
+    };
     stateRef.current = next;
     setState(next);
   }, []);
@@ -71,55 +127,47 @@ export function CortisolExperience() {
     const localY = Math.min(bounds.height, Math.max(0, event.clientY - bounds.top));
     const x = clampCoordinate((localX / bounds.width) * 2 - 1);
     const y = clampCoordinate(1 - (localY / bounds.height) * 2);
-    pointerRef.current.x = event.clientX;
-    pointerRef.current.y = event.clientY;
     positionCursor(event.clientX, event.clientY, x, y);
     commitCoordinates(x, y);
   }, [commitCoordinates, positionCursor]);
 
-  const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    pointerRef.current.active = true;
-    event.currentTarget.setPointerCapture(event.pointerId);
-    updateFromPointer(event);
-  };
-
-  const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.pointerType === "mouse" || pointerRef.current.active) updateFromPointer(event);
-  };
-
-  const handlePointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
-    pointerRef.current.active = false;
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
+  const selectMood = useCallback((moodId: string, jumpToFocus = true) => {
+    const current = stateRef.current;
+    const next: ProjectCortisolGlobalState = {
+      ...current,
+      scrollState: { ...current.scrollState, activeFocusMoodId: moodId },
+    };
+    stateRef.current = next;
+    setState(next);
+    if (jumpToFocus && scrollTriggerRef.current) {
+      const trigger = scrollTriggerRef.current;
+      lenisRef.current?.scrollTo(trigger.start + (trigger.end - trigger.start) * 0.68, {
+        duration: 1.1,
+        easing: (value) => 1 - Math.pow(1 - value, 3),
+      });
     }
-  };
+  }, []);
 
-  const handleExpectationChange = (event: ChangeEvent<HTMLInputElement>) => {
-    commitCoordinates(Number(event.target.value), state.coordinates.y);
-  };
+  const cycleMood = useCallback((direction: number) => {
+    const nextIndex = (getMoodIndex(stateRef.current.scrollState.activeFocusMoodId ?? focusedProfile.id) + direction + STATE_PROFILES.length) % STATE_PROFILES.length;
+    selectMood(STATE_PROFILES[nextIndex].id, false);
+  }, [focusedProfile.id, selectMood]);
 
-  const handleExpressionChange = (event: ChangeEvent<HTMLInputElement>) => {
-    commitCoordinates(state.coordinates.x, Number(event.target.value));
-  };
-
-  const reset = useCallback(() => {
-    commitCoordinates(0, 0);
-    const bounds = interactionRef.current?.getBoundingClientRect();
-    if (bounds && cursorRef.current) {
-      cursorRef.current.style.transform = `translate3d(${bounds.left + bounds.width / 2}px, ${bounds.top + bounds.height / 2}px, 0)`;
-    }
-  }, [commitCoordinates]);
-
-  const togglePause = () => {
-    pausedRef.current = !pausedRef.current;
-    setPaused(pausedRef.current);
-  };
+  const reset = useCallback(() => commitCoordinates(0, 0), [commitCoordinates]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (stateRef.current.scrollState.currentStage === "SINGLE_FOCUS" && event.key === "ArrowLeft") {
+        cycleMood(-1);
+        return;
+      }
+      if (stateRef.current.scrollState.currentStage === "SINGLE_FOCUS" && event.key === "ArrowRight") {
+        cycleMood(1);
+        return;
+      }
       if (!event.key.startsWith("Arrow")) return;
       const step = event.shiftKey ? 0.1 : 0.025;
-      const current = stateRef.current.coordinates;
+      const current = stateRef.current.inputCoordinates;
       if (event.key === "ArrowUp") commitCoordinates(current.x, current.y + step);
       if (event.key === "ArrowDown") commitCoordinates(current.x, current.y - step);
       if (event.key === "ArrowLeft") commitCoordinates(current.x - step, current.y);
@@ -128,14 +176,13 @@ export function CortisolExperience() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [commitCoordinates]);
+  }, [commitCoordinates, cycleMood]);
 
   useEffect(() => {
     const syncCursor = () => {
       const bounds = interactionRef.current?.getBoundingClientRect();
       if (!bounds) return;
-      const x = stateRef.current.coordinates.x;
-      const y = stateRef.current.coordinates.y;
+      const { x, y } = stateRef.current.inputCoordinates;
       positionCursor(
         bounds.left + ((x + 1) / 2) * bounds.width,
         bounds.top + ((1 - y) / 2) * bounds.height,
@@ -146,7 +193,7 @@ export function CortisolExperience() {
     syncCursor();
     window.addEventListener("resize", syncCursor);
     return () => window.removeEventListener("resize", syncCursor);
-  }, [positionCursor, state.coordinates.x, state.coordinates.y]);
+  }, [positionCursor, state.inputCoordinates.x, state.inputCoordinates.y]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -156,10 +203,19 @@ export function CortisolExperience() {
     let animationFrame = 0;
     let previous = performance.now();
     const started = previous;
+    let assetsLoaded = 0;
     let lastLoadPercent = -1;
 
+    STATE_PROFILES.forEach((mood) => {
+      const asset = new window.Image();
+      const settled = () => { assetsLoaded += 1; };
+      asset.addEventListener("load", settled, { once: true });
+      asset.addEventListener("error", settled, { once: true });
+      asset.src = mood.imageAssetPath;
+    });
+
     try {
-      engine = new WebGLCortisol(canvas, reducedMotion);
+      engine = new WebGLCortisol(canvas);
     } catch (error) {
       canvas.dataset.webglError = "true";
       console.error("Project Cortisol WebGL initialization failed", error);
@@ -175,7 +231,10 @@ export function CortisolExperience() {
       const elapsed = elapsedMs / 1000;
       const delta = Math.min(0.05, (now - previous) / 1000);
       previous = now;
-      const rawLoad = Math.min(1.08, elapsedMs / LOAD_DURATION);
+      const timeProgress = elapsedMs / LOAD_DURATION;
+      const ingestion = Math.min(0.8, Math.max(timeProgress * 0.8, (assetsLoaded / STATE_PROFILES.length) * 0.8));
+      const settling = assetsLoaded === STATE_PROFILES.length ? Math.max(0, timeProgress - 0.8) : 0;
+      const rawLoad = Math.min(1.08, ingestion + settling);
       const percent = Math.min(100, Math.floor(rawLoad * 100));
       if (percent !== lastLoadPercent) {
         lastLoadPercent = percent;
@@ -207,49 +266,82 @@ export function CortisolExperience() {
   }, []);
 
   useEffect(() => {
-    gsap.registerPlugin(ScrollTrigger);
+    gsap.registerPlugin(ScrollTrigger, SplitText);
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const lenis = new Lenis({
       ...PRODUCTION_SCROLL_CONFIGURATION,
       autoRaf: false,
       duration: reducedMotion ? 0 : 1.2,
     });
-    const handleScroll = (event: { progress: number; velocity: number }) => {
-      scrollRef.current.progress = event.progress;
+    lenisRef.current = lenis;
+    lenis.on("scroll", (event: { velocity: number }) => {
       scrollRef.current.velocity = event.velocity;
-      shellRef.current?.style.setProperty("--scroll-progress", String(event.progress));
-      const rows = Array.from(document.querySelectorAll<HTMLElement>(".registry-row"));
-      const viewportFocus = window.innerHeight * 0.5;
-      const visibleIndex = rows.findIndex((row) => {
-        const bounds = row.getBoundingClientRect();
-        return bounds.top <= viewportFocus && bounds.bottom >= viewportFocus;
-      });
-      const nextArtwork = visibleIndex >= 0
-        ? visibleIndex
-        : event.progress < 0.2 ? 0 : STATE_PROFILES.length - 1;
-      setActiveArtwork((current) => current === nextArtwork ? current : nextArtwork);
       ScrollTrigger.update();
-    };
-    lenis.on("scroll", handleScroll);
+    });
     const tick = (time: number) => lenis.raf(time * 1000);
     gsap.ticker.add(tick);
     gsap.ticker.lagSmoothing(0);
+
+    const trigger = ScrollTrigger.create({
+      trigger: narrativeRef.current,
+      start: "top top",
+      end: "+=300%",
+      pin: true,
+      scrub: reducedMotion ? false : 0.8,
+      anticipatePin: 1,
+      onUpdate: (self) => {
+        const progress = self.progress;
+        const stage: ProjectCortisolGlobalState["scrollState"]["currentStage"] = progress < 0.25
+          ? "SANDBOX"
+          : progress < 0.6 ? "CLUSTER_ASSEMBLY" : "SINGLE_FOCUS";
+        scrollRef.current.progress = progress;
+        shellRef.current?.style.setProperty("--narrative-progress", String(progress));
+        shellRef.current?.style.setProperty("--cluster-progress", String(Math.min(1, Math.max(0, (progress - 0.25) / 0.35))));
+        shellRef.current?.style.setProperty("--focus-progress", String(Math.min(1, Math.max(0, (progress - 0.6) / 0.4))));
+        const current = stateRef.current;
+        const autoProfile = resolveProfile(current.inputCoordinates.x, current.inputCoordinates.y);
+        const activeFocusMoodId = current.scrollState.activeFocusMoodId
+          ?? (autoProfile.id === ORIGIN_PROFILE.id ? STATE_PROFILES[0].id : autoProfile.id);
+        current.scrollState.progress = progress;
+        if (current.scrollState.currentStage !== stage) {
+          const next: ProjectCortisolGlobalState = {
+            ...current,
+            scrollState: { currentStage: stage, progress, activeFocusMoodId },
+          };
+          stateRef.current = next;
+          setState(next);
+        }
+      },
+    });
+    scrollTriggerRef.current = trigger;
     ScrollTrigger.refresh();
     return () => {
+      trigger.kill();
       lenis.destroy();
+      lenisRef.current = null;
+      scrollTriggerRef.current = null;
       gsap.ticker.remove(tick);
-      ScrollTrigger.getAll().forEach((trigger) => trigger.kill());
     };
   }, []);
 
-  const artworkProfile = STATE_PROFILES[activeArtwork];
+  useEffect(() => {
+    if (state.scrollState.currentStage !== "SINGLE_FOCUS" || !focusDescriptionRef.current) return;
+    const split = SplitText.create(focusDescriptionRef.current, { type: "lines", linesClass: "focus-copy-line" });
+    gsap.fromTo(split.lines, { yPercent: 110, opacity: 0 }, { yPercent: 0, opacity: 1, duration: 0.82, stagger: 0.07, ease: "power3.out" });
+    return () => split.revert();
+  }, [focusedProfile.id, state.scrollState.currentStage]);
+
+  const togglePause = () => {
+    pausedRef.current = !pausedRef.current;
+    setPaused(pausedRef.current);
+  };
 
   return (
-    <main ref={shellRef} className="cortisol-shell">
+    <main ref={shellRef} className={`cortisol-shell ${loaded ? "is-loaded" : ""}`} data-stage={state.scrollState.currentStage}>
       <div className={`preloader ${loaded ? "preloader--complete" : ""}`} aria-hidden={loaded}>
         <div className="preloader-mark">+</div>
-        <div className="preloader-readout">
-          <span>Neural matter ingestion</span>
+        <div className="preloader-phase">
+          <span>{loadPercent < 80 ? "Gathering scattered light" : loadPercent < 100 ? "Slowing the spiral" : "Settling at center"}</span>
           <strong>{String(loadPercent).padStart(2, "0")}</strong>
         </div>
         <div className="preloader-line"><span style={{ transform: `scaleX(${loadPercent / 100})` }} /></div>
@@ -258,120 +350,142 @@ export function CortisolExperience() {
       <canvas ref={canvasRef} className="webgl-stage" aria-hidden="true" />
       <div className="twelve-column-grid" aria-hidden="true" />
 
-      <header className="system-header">
-        <a className="brand" href="#origin" aria-label="Project Cortisol, return to origin">
+      <header className="system-header interface-layer">
+        <a className="brand" href="#experience" aria-label="Project Cortisol, return to the emotional map">
           <span className="brand-mark">+</span>
           <span>Project Cortisol</span>
         </a>
-        <div className="session"><span className="live-dot" />Live physiological model / Rev.01</div>
+        <div className="session"><span className="live-dot" />Live emotional field / Sol 5.6</div>
         <div className="header-actions">
-          <button type="button" className="icon-button" onClick={togglePause} aria-label={paused ? "Resume simulation" : "Pause simulation"} aria-pressed={paused} title={paused ? "Resume" : "Pause"}>
+          <button type="button" className="icon-button" onClick={togglePause} aria-label={paused ? "Resume motion" : "Pause motion"} aria-pressed={paused} title={paused ? "Resume" : "Pause"}>
             {paused ? <Play aria-hidden="true" /> : <Pause aria-hidden="true" />}
           </button>
-          <button type="button" className="icon-button" onClick={reset} aria-label="Return coordinates to origin" title="Reset to origin">
+          <button type="button" className="icon-button" onClick={reset} aria-label="Return both controls to center" title="Reset to center">
             <RotateCcw aria-hidden="true" />
           </button>
         </div>
       </header>
 
-      <div className="fixed-telemetry" aria-live="polite">
-        <span>{profile.indexCode}</span>
-        <strong>{profile.telemetry}</strong>
-      </div>
-
-      <section id="origin" className="simulation-viewport" aria-label="Project Cortisol eight-state emotional coordinate field">
-        <div
-          ref={interactionRef}
-          className="interaction-field"
-          role="application"
-          aria-label="Bidirectional expectation and expression plane"
-          tabIndex={0}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerCancel={handlePointerUp}
-        >
-          <div className="field-axis field-axis--x" aria-hidden="true" />
-          <div className="field-axis field-axis--y" aria-hidden="true" />
-          <div ref={cursorRef} className={`field-cursor field-cursor--${state.cursorProperties.visualStyle}`} aria-hidden="true"><i /><b /></div>
-          <span className="edge-label edge-label--top">Expression / +1</span>
-          <span className="edge-label edge-label--bottom">Serenity / -1</span>
-          <span className="edge-label edge-label--left">Disappointment / -1</span>
-          <span className="edge-label edge-label--right">Fulfillment / +1</span>
-          <span className="origin-label">0,0</span>
-        </div>
-
-        <div className="hero-readout">
-          <p>{profile.eyebrow}</p>
-          <h1>{profile.label}</h1>
-          <div className="hero-meta">
-            <p>{profile.description}</p>
-            <span>{profile.systemMetrics}</span>
+      <section id="experience" ref={narrativeRef} className="narrative-stage" aria-label="Project Cortisol emotional archetype experience">
+        <section className="sandbox-stage" aria-label="Interactive emotional map">
+          <div
+            ref={interactionRef}
+            className="interaction-field"
+            role="application"
+            aria-label="Bidirectional expectation and expression plane"
+            tabIndex={0}
+            onPointerDown={(event) => {
+              pointerRef.current.active = true;
+              event.currentTarget.setPointerCapture(event.pointerId);
+              updateFromPointer(event);
+            }}
+            onPointerMove={(event) => {
+              if (pointerRef.current.active) updateFromPointer(event);
+            }}
+            onPointerUp={(event) => {
+              pointerRef.current.active = false;
+              if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+            }}
+          >
+            <div className="field-axis field-axis--x" aria-hidden="true" />
+            <div className="field-axis field-axis--y" aria-hidden="true" />
+            <div ref={cursorRef} className={`field-cursor field-cursor--${cursorStyle}`} aria-hidden="true"><i /><b /></div>
+            <span className="origin-label">0,0</span>
           </div>
-        </div>
 
-        <label className="axis-control axis-control--x">
-          <span>Expectation</span>
-          <input type="range" min="-1" max="1" step="0.01" value={state.coordinates.x} onChange={handleExpectationChange} aria-label="Expectation: disappointment to fulfillment" />
-          <output>{formatCoordinate(state.coordinates.x)}</output>
-        </label>
-        <label className="axis-control axis-control--y">
-          <span>Expression</span>
-          <input type="range" min="-1" max="1" step="0.01" value={state.coordinates.y} onChange={handleExpressionChange} aria-label="Expression: serenity to anger" />
-          <output>{formatCoordinate(state.coordinates.y)}</output>
-        </label>
-      </section>
+          <div className="thesis-copy interface-layer">
+            <p>Project Cortisol</p>
+            <h1>An interactive map of human tension.</h1>
+            <p>We rarely feel just one emotion at a time. We exist in the blurred intersections between expectation and reality, energy and exhaustion. Use the dual controls to calibrate your current state of mind and visualize the emotional weight you are carrying.</p>
+          </div>
 
-      <section className="registry" aria-labelledby="registry-title">
-        <div className="section-index">
-          <span>01 / State registry</span>
-          <p id="registry-title">Eight representative somatic systems</p>
-        </div>
-        {STATE_PROFILES.map((item, index) => (
-          <article key={item.id} className={`registry-row ${activeArtwork === index ? "registry-row--active" : ""}`}>
-            <div className="registry-number">0{index + 1}</div>
-            <figure className="registry-artwork">
-              <Image src="/og.png" alt="" fill sizes="(max-width: 760px) 100vw, 50vw" priority={index < 2} style={{ objectPosition: `${index % 2 ? 72 : 38}% ${30 + (index % 4) * 14}%` }} />
-              <span>{item.indexCode}</span>
-            </figure>
-            <div className="registry-copy">
-              <p>{item.eyebrow}</p>
-              <h2>{item.label}</h2>
-              <span>{item.shortLabel}</span>
-              <div>
-                <p>{item.description}</p>
-                <code>{item.systemMetrics}</code>
-              </div>
-            </div>
+          <div className="current-mood interface-layer" aria-live="polite">
+            <span>{profile.subtitle}</span>
+            <strong>{profile.title}</strong>
+            <p>{profile.visceralDescription}</p>
+          </div>
+
+          <label className="axis-control axis-control--x interface-layer">
+            <span>Expectation axis // [ -1.0 disappointment | +1.0 fulfillment ]</span>
+            <input type="range" min="-1" max="1" step="0.01" value={state.inputCoordinates.x} onChange={(event: ChangeEvent<HTMLInputElement>) => commitCoordinates(Number(event.target.value), stateRef.current.inputCoordinates.y)} aria-label="Expectation axis: disappointment to fulfillment" />
+            <output>{formatCoordinate(state.inputCoordinates.x)}</output>
+          </label>
+          <label className="axis-control axis-control--y interface-layer">
+            <span>Expression axis // [ -1.0 serenity | +1.0 anger ]</span>
+            <input type="range" min="-1" max="1" step="0.01" value={state.inputCoordinates.y} onChange={(event: ChangeEvent<HTMLInputElement>) => commitCoordinates(stateRef.current.inputCoordinates.x, Number(event.target.value))} aria-label="Expression axis: serenity to anger" />
+            <output>{formatCoordinate(state.inputCoordinates.y)}</output>
+          </label>
+
+          <div className="scroll-prompt interface-layer">
+            <span>Scroll down to explore the 8 emotional archetypes</span>
+            <ArrowDown aria-hidden="true" />
+          </div>
+        </section>
+
+        <section className="cluster-stage" aria-label="Eight emotional archetypes">
+          <div className="cluster-heading">
+            <span>Eight states / choose one or keep scrolling</span>
+            <p>The blurred intersections</p>
+          </div>
+          <div className="mood-cluster">
+            {STATE_PROFILES.map((mood, index) => {
+              const layout = CLUSTER_LAYOUT[index];
+              const style = {
+                "--cluster-x": `${layout.x}%`,
+                "--cluster-y": `${layout.y}%`,
+                "--cluster-size": `${layout.size}%`,
+                "--cluster-rotate": `${layout.rotate}deg`,
+                "--cluster-index": index,
+              } as CSSProperties;
+              return (
+                <button key={mood.id} type="button" className="mood-tile" style={style} onClick={() => selectMood(mood.id)} aria-label={`Focus ${mood.title}`}>
+                  <Image src={mood.imageAssetPath} alt="" fill sizes="(max-width: 760px) 42vw, 24vw" priority />
+                  <span>[ {moodNumber(index)}{" // "}{mood.title} ]</span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        <section
+          className="focus-stage"
+          aria-label={`${focusedProfile.title} editorial view`}
+          onPointerDown={(event) => { swipeStartRef.current = event.clientX; }}
+          onPointerUp={(event) => {
+            if (swipeStartRef.current === null) return;
+            const distance = event.clientX - swipeStartRef.current;
+            if (Math.abs(distance) > 48) cycleMood(distance > 0 ? -1 : 1);
+            swipeStartRef.current = null;
+          }}
+        >
+          <figure className="focus-image">
+            <Image src={focusedProfile.imageAssetPath} alt={`${focusedProfile.title} visual study`} fill sizes="(max-width: 900px) 84vw, 42vw" priority />
+            <figcaption>{moodNumber(focusIndex)} / 08</figcaption>
+          </figure>
+          <article className="focus-editorial">
+            <p>State {moodNumber(focusIndex)}{" // "}{focusedProfile.title}</p>
+            <h2>{FOCUS_SUBHEADS[focusedProfile.id]}</h2>
+            <p key={focusedProfile.id} ref={focusDescriptionRef} className="focus-description">{focusedProfile.visceralDescription}</p>
+            <footer>{focusedProfile.biometricHUD}</footer>
           </article>
-        ))}
-      </section>
-
-      <section className="editorial-telemetry" aria-label="Physiological analysis">
-        <div className="telemetry-heading">
-          <span>02 / Somatic analysis</span>
-          <p>Current signal</p>
-        </div>
-        <div className="telemetry-state">
-          <p>{artworkProfile.indexCode}</p>
-          <h2>{artworkProfile.telemetry}</h2>
-        </div>
-        <dl className="metrics-list">
-          <div><dt>Expectation vector</dt><dd>{formatCoordinate(state.coordinates.x)}</dd></div>
-          <div><dt>Expression vector</dt><dd>{formatCoordinate(state.coordinates.y)}</dd></div>
-          <div><dt>Gravity field</dt><dd>{state.engineConstants.gravityField.toFixed(2)}</dd></div>
-          <div><dt>Viscosity</dt><dd>{state.engineConstants.viscosity.toFixed(2)}</dd></div>
-          <div><dt>Entropy factor</dt><dd>{state.engineConstants.entropyFactor.toFixed(2)}</dd></div>
-          <div><dt>Noise frequency</dt><dd>{state.engineConstants.noiseFrequency.toFixed(2)}</dd></div>
-        </dl>
-        <p className="closing-signal">{state.telemetryMetadata.somaticDescriptionText}</p>
-        <a className="return-link" href="#origin">Return to biological origin <span>+</span></a>
+          <nav className="mood-switcher" aria-label="Explore other moods">
+            <button type="button" className="switcher-arrow" onClick={() => cycleMood(-1)} aria-label="Previous mood" title="Previous mood"><ChevronLeft aria-hidden="true" /></button>
+            <div className="switcher-track">
+              {STATE_PROFILES.map((mood, index) => (
+                <button key={mood.id} type="button" className={mood.id === focusedProfile.id ? "is-active" : ""} onClick={() => selectMood(mood.id, false)}>
+                  {moodNumber(index)} {mood.title.replace("THE ", "")}
+                </button>
+              ))}
+            </div>
+            <button type="button" className="switcher-arrow" onClick={() => cycleMood(1)} aria-label="Next mood" title="Next mood"><ChevronRight aria-hidden="true" /></button>
+          </nav>
+        </section>
       </section>
 
       <footer className="system-footer">
         <span>Project Cortisol / {new Date().getFullYear()}</span>
-        <span>WebGL physiological engine</span>
-        <span>{ORIGIN_PROFILE.indexCode}</span>
+        <span>Eight ways tension can live in the body</span>
+        <a href="#experience">Return to the map +</a>
       </footer>
     </main>
   );

@@ -124,6 +124,8 @@ test("keeps the particle and continuous choreography contracts explicit", async 
   assert.match(experience, /mood-tile__surface/);
   assert.match(experience, /--float-duration/);
   assert.match(experience, /cluster-motion-copy/);
+  assert.match(experience, /type: "words,chars"/);
+  assert.match(experience, /wordsClass: "cluster-prompt-word"/);
   assert.match(experience, /characterProgress/);
   assert.match(experience, /clusterProgress - index \* 0\.009/);
   assert.doesNotMatch(experience, /layout\.rotate/);
@@ -143,6 +145,7 @@ test("keeps the particle and continuous choreography contracts explicit", async 
   assert.match(css, /@keyframes moodTileFloat/);
   assert.match(css, /\.cluster-heading \{[\s\S]*?top: 50%/);
   assert.match(css, /\.cluster-prompt-char/);
+  assert.match(css, /\.cluster-prompt-word/);
   assert.doesNotMatch(css, /rotate\(var\(--cluster-rotate\)\)/);
   assert.match(css, /\.mood-details/);
   assert.match(css, /\.mood-detail__editorial/);

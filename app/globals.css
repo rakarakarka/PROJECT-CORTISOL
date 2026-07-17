@@ -695,6 +695,11 @@ a:focus-visible,
   will-change: opacity, transform;
 }
 
+.cluster-prompt-word {
+  display: inline-block;
+  white-space: nowrap;
+}
+
 .mood-cluster {
   position: absolute;
   z-index: 2;

@@ -316,7 +316,11 @@ export function CortisolExperience() {
       const clusterPrompt = document.querySelector<HTMLElement>(".cluster-motion-copy");
       let clusterPromptChars: HTMLElement[] = [];
       if (clusterPrompt && !reducedMotion) {
-        const split = SplitText.create(clusterPrompt, { type: "chars", charsClass: "cluster-prompt-char" });
+        const split = SplitText.create(clusterPrompt, {
+          type: "words,chars",
+          wordsClass: "cluster-prompt-word",
+          charsClass: "cluster-prompt-char",
+        });
         splitInstances.push(split);
         clusterPromptChars = split.chars as HTMLElement[];
         clusterPromptChars.forEach((character) => {

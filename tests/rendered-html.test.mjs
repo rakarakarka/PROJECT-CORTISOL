@@ -65,7 +65,7 @@ test("keeps the particle and continuous choreography contracts explicit", async 
   assert.match(model, /GLOBAL_PARTICLE_CAP = 18_000/);
   assert.match(model, /PRELOADER_PARTICLE_COUNT = 30_000/);
   assert.match(model, /AXIS_TOLERANCE = 0\.05/);
-  assert.match(model, /currentStage: "SANDBOX" \| "CLUSTER_ASSEMBLY" \| "SINGLE_FOCUS"/);
+  assert.match(model, /currentStage: "SANDBOX" \| "CLUSTER_ASSEMBLY" \| "DETAIL_SEQUENCE"/);
   assert.match(model, /lerp: 0\.075/);
   assert.match(model, /wheelMultiplier: 0\.8/);
 
@@ -113,9 +113,9 @@ test("keeps the particle and continuous choreography contracts explicit", async 
   assert.match(experience, /new Lenis/);
   assert.match(experience, /SplitText/);
   assert.match(experience, /pin: true/);
-  assert.match(experience, /end: "\+=360%"/);
+  assert.match(experience, /end: "\+=260%"/);
   assert.match(experience, /progress < 0\.24/);
-  assert.match(experience, /progress < 0\.68/);
+  assert.match(experience, /currentStage: "DETAIL_SEQUENCE"/);
   assert.match(experience, /moodSectionId/);
   assert.match(experience, /mood-detail__image/);
   assert.match(experience, /quote-motion-copy/);
@@ -131,6 +131,7 @@ test("keeps the particle and continuous choreography contracts explicit", async 
   assert.doesNotMatch(experience, /layout\.rotate/);
   assert.match(experience, /selectMood/);
   assert.match(experience, /Math\.abs\(distance\) > 48/);
+  assert.doesNotMatch(experience, /className="focus-stage"/);
   assert.match(experience, /requestAnimationFrame\(frame\)/);
   assert.match(experience, /prefers-reduced-motion: reduce/);
 
@@ -149,6 +150,7 @@ test("keeps the particle and continuous choreography contracts explicit", async 
   assert.doesNotMatch(css, /rotate\(var\(--cluster-rotate\)\)/);
   assert.match(css, /\.mood-details/);
   assert.match(css, /\.mood-detail__editorial/);
+  assert.match(css, /\[data-stage="DETAIL_SEQUENCE"\] \.cluster-stage/);
   assert.match(css, /@media \(max-width: 900px\)/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
 

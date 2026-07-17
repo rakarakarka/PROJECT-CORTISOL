@@ -96,7 +96,6 @@ export function CortisolExperience() {
     return STATE_PROFILES.find((item) => item.id === selected)
       ?? (profile.id === ORIGIN_PROFILE.id ? STATE_PROFILES[0] : profile as MoodProfile);
   }, [profile, state.scrollState.activeFocusMoodId]);
-  const focusIndex = getMoodIndex(focusedProfile.id);
   const cursorStyle = MOOD_VISUALS[profile.id].cursorStyle;
   const glowStyle = useMemo(() => {
     const visual = MOOD_VISUALS[profile.id];
@@ -174,11 +173,11 @@ export function CortisolExperience() {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (stateRef.current.scrollState.currentStage === "SINGLE_FOCUS" && event.key === "ArrowLeft") {
+      if (stateRef.current.scrollState.currentStage === "DETAIL_SEQUENCE" && event.key === "ArrowLeft") {
         cycleMood(-1);
         return;
       }
-      if (stateRef.current.scrollState.currentStage === "SINGLE_FOCUS" && event.key === "ArrowRight") {
+      if (stateRef.current.scrollState.currentStage === "DETAIL_SEQUENCE" && event.key === "ArrowRight") {
         cycleMood(1);
         return;
       }
@@ -302,10 +301,10 @@ export function CortisolExperience() {
     const splitInstances: SplitText[] = [];
     const activateMood = (moodId: string) => {
       const current = stateRef.current;
-      if (current.scrollState.activeFocusMoodId === moodId && current.scrollState.currentStage === "SINGLE_FOCUS") return;
+      if (current.scrollState.activeFocusMoodId === moodId && current.scrollState.currentStage === "DETAIL_SEQUENCE") return;
       const next: ProjectCortisolGlobalState = {
         ...current,
-        scrollState: { ...current.scrollState, currentStage: "SINGLE_FOCUS", activeFocusMoodId: moodId },
+        scrollState: { ...current.scrollState, currentStage: "DETAIL_SEQUENCE", activeFocusMoodId: moodId },
       };
       stateRef.current = next;
       setState(next);
@@ -331,7 +330,7 @@ export function CortisolExperience() {
       const trigger = ScrollTrigger.create({
         trigger: narrativeRef.current,
         start: "top top",
-        end: "+=360%",
+        end: "+=260%",
         pin: true,
         scrub: reducedMotion ? false : 0.75,
         anticipatePin: 1,
@@ -339,13 +338,11 @@ export function CortisolExperience() {
           const progress = self.progress;
           const stage: ProjectCortisolGlobalState["scrollState"]["currentStage"] = progress < 0.24
             ? "SANDBOX"
-            : progress < 0.68 ? "CLUSTER_ASSEMBLY" : "SINGLE_FOCUS";
-          const clusterProgress = Math.min(1, Math.max(0, (progress - 0.24) / 0.44));
-          const focusProgress = Math.min(1, Math.max(0, (progress - 0.68) / 0.32));
+            : "CLUSTER_ASSEMBLY";
+          const clusterProgress = Math.min(1, Math.max(0, (progress - 0.24) / 0.6));
           scrollRef.current.progress = progress;
           shellRef.current?.style.setProperty("--narrative-progress", String(progress));
           shellRef.current?.style.setProperty("--cluster-progress", String(clusterProgress));
-          shellRef.current?.style.setProperty("--focus-progress", String(focusProgress));
           clusterPromptChars.forEach((character, index) => {
             const characterProgress = Math.min(1, Math.max(0, (clusterProgress - index * 0.009) / 0.34));
             const characterEase = 1 - Math.pow(1 - characterProgress, 3);
@@ -373,6 +370,9 @@ export function CortisolExperience() {
             stateRef.current = next;
             setState(next);
           }
+        },
+        onLeave: () => {
+          activateMood(stateRef.current.scrollState.activeFocusMoodId ?? STATE_PROFILES[0].id);
         },
       });
       scrollTriggerRef.current = trigger;
@@ -585,42 +585,19 @@ export function CortisolExperience() {
           </div>
         </section>
 
-        <section
-          className="focus-stage"
-          aria-label={`${focusedProfile.title} editorial view`}
-          onPointerDown={(event) => { swipeStartRef.current = event.clientX; }}
-          onPointerUp={(event) => {
-            if (swipeStartRef.current === null) return;
-            const distance = event.clientX - swipeStartRef.current;
-            if (Math.abs(distance) > 48) cycleMood(distance > 0 ? -1 : 1);
-            swipeStartRef.current = null;
-          }}
-        >
-          <figure key={`image-${focusedProfile.id}`} className="focus-image">
-            <Image src={focusedProfile.imageAssetPath} alt={`${focusedProfile.title} visual study`} fill sizes="(max-width: 900px) 84vw, 42vw" priority />
-            <figcaption>{moodNumber(focusIndex)} / 08</figcaption>
-          </figure>
-          <article key={`copy-${focusedProfile.id}`} className="focus-editorial">
-            <p>State {moodNumber(focusIndex)}{" // "}{focusedProfile.title}</p>
-            <h2>{FOCUS_SUBHEADS[focusedProfile.id]}</h2>
-            <p key={focusedProfile.id} className="focus-description">{focusedProfile.visceralDescription}</p>
-            <footer>{focusedProfile.biometricHUD}</footer>
-          </article>
-          <nav className="mood-switcher" aria-label="Explore other moods">
-            <button type="button" className="switcher-arrow" onClick={() => cycleMood(-1)} aria-label="Previous mood" title="Previous mood"><ChevronLeft aria-hidden="true" /></button>
-            <div className="switcher-track">
-              {STATE_PROFILES.map((mood, index) => (
-                <button key={mood.id} type="button" className={mood.id === focusedProfile.id ? "is-active" : ""} onClick={() => selectMood(mood.id, true)}>
-                  {moodNumber(index)} {mood.title.replace("THE ", "")}
-                </button>
-              ))}
-            </div>
-            <button type="button" className="switcher-arrow" onClick={() => cycleMood(1)} aria-label="Next mood" title="Next mood"><ChevronRight aria-hidden="true" /></button>
-          </nav>
-        </section>
       </section>
 
-      <section className="mood-details" aria-label="Eight mood detail chapters">
+      <section
+        className="mood-details"
+        aria-label="Eight mood detail chapters"
+        onPointerDown={(event) => { swipeStartRef.current = event.clientX; }}
+        onPointerUp={(event) => {
+          if (swipeStartRef.current === null) return;
+          const distance = event.clientX - swipeStartRef.current;
+          if (Math.abs(distance) > 48) cycleMood(distance > 0 ? -1 : 1);
+          swipeStartRef.current = null;
+        }}
+      >
         {STATE_PROFILES.map((mood, index) => {
           const previousMood = STATE_PROFILES[(index - 1 + STATE_PROFILES.length) % STATE_PROFILES.length];
           const nextMood = STATE_PROFILES[(index + 1) % STATE_PROFILES.length];

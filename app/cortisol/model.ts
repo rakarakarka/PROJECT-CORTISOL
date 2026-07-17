@@ -34,7 +34,7 @@ export interface ProjectCortisolGlobalState {
     y: number;
   };
   scrollState: {
-    currentStage: "SANDBOX" | "CLUSTER_ASSEMBLY" | "SINGLE_FOCUS";
+    currentStage: "SANDBOX" | "CLUSTER_ASSEMBLY" | "DETAIL_SEQUENCE";
     progress: number;
     activeFocusMoodId: string | null;
   };

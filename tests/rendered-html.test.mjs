@@ -23,9 +23,11 @@ test("server-renders the complete emotional experience", async () => {
   assert.match(html, /An interactive map of human tension/i);
   assert.match(html, /We rarely feel just one emotion at a time/i);
   assert.match(html, /Bidirectional expectation and expression plane/i);
+  assert.match(html, /Control the Mood Particle/i);
+  assert.match(html, /Or click and drag around the space/i);
   assert.match(html, /Expectation axis.*disappointment.*fulfillment/i);
   assert.match(html, /Expression axis.*serenity.*anger/i);
-  assert.match(html, /The blurred intersections/i);
+  assert.match(html, /Eight mood detail chapters/i);
   assert.match(html, /Euphoric Ecstasy/i);
   assert.match(html, /Boiling Tar/i);
   assert.match(html, /Somber Grace/i);
@@ -35,8 +37,9 @@ test("server-renders the complete emotional experience", async () => {
   assert.match(html, /The Stasis/i);
   assert.match(html, /The Horizon/i);
   assert.match(html, /Unexpressed emotions will never die/i);
-  assert.match(html, /an experimental website to experience visualization of our combined mood/i);
+  assert.match(html, /An interactive digital space designed to explore and visualize our combined emotional states/i);
   assert.match(html, /Arka Auzan/i);
+  assert.equal((html.match(/class="mood-detail"/g) ?? []).length, 8);
   assert.equal((html.match(/type="range"[^>]*min="-1"[^>]*max="1"/gi) ?? []).length, 2);
   assert.match(html, /rel="icon"[^>]*href="\/favicon\.svg"/i);
   assert.doesNotMatch(html, /Sol 5\.6/i);
@@ -83,11 +86,21 @@ test("keeps the particle and continuous choreography contracts explicit", async 
   assert.match(renderer, /GLOBAL_PARTICLE_CAP/);
   assert.match(renderer, /uVelocityTexture/);
   assert.match(renderer, /uScrollVelocity/);
+  assert.match(renderer, /createBiologicalSphereTexture/);
+  assert.match(renderer, /controlledVelocityMax = Math\.min\(physics\.velocityMax, 5\.4\)/);
+  assert.match(renderer, /PARTICLE_BOUNDARY_RADIUS = 2\.54 \* 1\.2/);
   assert.doesNotMatch(renderer, /cageBounds|uCageBounds|uIsCagedSwarm/);
 
   assert.doesNotMatch(shaders, /uIsCagedSwarm|uCageBounds|distanceFromOrigin/);
+  assert.doesNotMatch(shaders, /loadingSpiral/);
   assert.match(shaders, /exp\(-0\.05/);
-  assert.match(shaders, /particleIndex \/ 30000\.0/);
+  assert.match(shaders, /loadingVortex/);
+  assert.match(shaders, /membraneWave/);
+  assert.match(shaders, /regenerationProgress/);
+  assert.match(shaders, /boundaryInfluence/);
+  assert.match(shaders, /soundWaveBoundary/);
+  assert.match(shaders, /boundaryEcho/);
+  assert.match(shaders, /regenerationThreadLength/);
   assert.match(shaders, /curlField/);
   assert.match(shaders, /generativeFlow/);
   assert.match(shaders, /uVelocityTexture/);
@@ -99,10 +112,14 @@ test("keeps the particle and continuous choreography contracts explicit", async 
   assert.match(experience, /new Lenis/);
   assert.match(experience, /SplitText/);
   assert.match(experience, /pin: true/);
-  assert.match(experience, /end: "\+=900%"/);
-  assert.match(experience, /progress < 0\.18/);
-  assert.match(experience, /progress < 0\.32/);
-  assert.match(experience, /focusPosition = normalizedFocusProgress \* STATE_PROFILES\.length/);
+  assert.match(experience, /end: "\+=360%"/);
+  assert.match(experience, /progress < 0\.24/);
+  assert.match(experience, /progress < 0\.68/);
+  assert.match(experience, /moodSectionId/);
+  assert.match(experience, /mood-detail__image/);
+  assert.match(experience, /quote-motion-copy/);
+  assert.match(experience, /about-motion-copy/);
+  assert.match(experience, /layout\.depth \* \(1 - eased\)/);
   assert.match(experience, /selectMood/);
   assert.match(experience, /Math\.abs\(distance\) > 48/);
   assert.match(experience, /requestAnimationFrame\(frame\)/);
@@ -113,6 +130,11 @@ test("keeps the particle and continuous choreography contracts explicit", async 
   assert.match(css, /aspect-ratio: 1/);
   assert.match(css, /grid-column: 2 \/ span 5/);
   assert.match(css, /grid-column: 7 \/ span 5/);
+  assert.match(css, /\.mood-control-panel/);
+  assert.match(css, /\.homepage-edge-glow/);
+  assert.match(css, /--mood-glow-a/);
+  assert.match(css, /\.mood-details/);
+  assert.match(css, /\.mood-detail__editorial/);
   assert.match(css, /@media \(max-width: 900px\)/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
 

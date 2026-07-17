@@ -30,14 +30,14 @@ import { WebGLCortisol } from "./cortisol/WebGLCortisol";
 
 const LOAD_DURATION = 2800;
 const CLUSTER_LAYOUT = [
-  { x: 4, y: 6, size: 23, rotate: -3 },
-  { x: 30, y: 2, size: 19, rotate: 2 },
-  { x: 52, y: 10, size: 24, rotate: -1 },
-  { x: 75, y: 4, size: 20, rotate: 3 },
-  { x: 12, y: 52, size: 19, rotate: 2 },
-  { x: 34, y: 44, size: 25, rotate: -2 },
-  { x: 61, y: 52, size: 18, rotate: 1 },
-  { x: 78, y: 43, size: 22, rotate: -3 },
+  { x: 5, y: 13, size: 18, rotate: -4, depth: -760, enterX: -34, enterY: -18 },
+  { x: 29, y: 3, size: 13, rotate: 3, depth: -420, enterX: 18, enterY: -31 },
+  { x: 51, y: 17, size: 16, rotate: -2, depth: -940, enterX: -8, enterY: 26 },
+  { x: 78, y: 7, size: 14, rotate: 4, depth: -560, enterX: 31, enterY: -16 },
+  { x: 12, y: 60, size: 13, rotate: 3, depth: -880, enterX: -26, enterY: 24 },
+  { x: 35, y: 48, size: 18, rotate: -3, depth: -350, enterX: 12, enterY: 32 },
+  { x: 62, y: 59, size: 12, rotate: 2, depth: -690, enterX: -16, enterY: 28 },
+  { x: 81, y: 46, size: 16, rotate: -4, depth: -1020, enterX: 28, enterY: 18 },
 ] as const;
 
 const FOCUS_SUBHEADS: Record<string, string> = {
@@ -60,13 +60,20 @@ function moodNumber(index: number) {
   return String(index + 1).padStart(2, "0");
 }
 
+function moodSectionId(moodId: string) {
+  return `mood-${moodId.toLowerCase().replaceAll("_", "-")}`;
+}
+
+function colorValue(color: [number, number, number]) {
+  return `rgb(${color.map((channel) => Math.round(channel * 255)).join(" ")})`;
+}
+
 export function CortisolExperience() {
   const shellRef = useRef<HTMLElement>(null);
   const narrativeRef = useRef<HTMLElement>(null);
   const interactionRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const cursorRef = useRef<HTMLDivElement>(null);
-  const focusDescriptionRef = useRef<HTMLParagraphElement>(null);
   const lenisRef = useRef<Lenis | null>(null);
   const scrollTriggerRef = useRef<ScrollTrigger | null>(null);
   const stateRef = useRef<ProjectCortisolGlobalState>(createState());
@@ -91,6 +98,15 @@ export function CortisolExperience() {
   }, [profile, state.scrollState.activeFocusMoodId]);
   const focusIndex = getMoodIndex(focusedProfile.id);
   const cursorStyle = MOOD_VISUALS[profile.id].cursorStyle;
+  const glowStyle = useMemo(() => {
+    const visual = MOOD_VISUALS[profile.id];
+    const energy = Math.max(Math.abs(state.inputCoordinates.x), Math.abs(state.inputCoordinates.y));
+    return {
+      "--mood-glow-a": colorValue(visual.colorA),
+      "--mood-glow-b": colorValue(visual.colorB),
+      "--mood-glow-energy": String(0.34 + energy * 0.16),
+    } as CSSProperties;
+  }, [profile.id, state.inputCoordinates.x, state.inputCoordinates.y]);
 
   const commitCoordinates = useCallback((x: number, y: number) => {
     const nextX = clampCoordinate(x);
@@ -139,12 +155,11 @@ export function CortisolExperience() {
     };
     stateRef.current = next;
     setState(next);
-    if (jumpToFocus && scrollTriggerRef.current) {
-      const trigger = scrollTriggerRef.current;
-      const moodIndex = Math.max(0, getMoodIndex(moodId));
-      const moodProgress = 0.32 + ((moodIndex + 0.16) / STATE_PROFILES.length) * 0.68;
-      lenisRef.current?.scrollTo(trigger.start + (trigger.end - trigger.start) * moodProgress, {
-        duration: 1.1,
+    if (jumpToFocus) {
+      const target = document.getElementById(moodSectionId(moodId));
+      if (!target) return;
+      lenisRef.current?.scrollTo(target, {
+        duration: 1.25,
         easing: (value) => 1 - Math.pow(1 - value, 3),
       });
     }
@@ -284,47 +299,128 @@ export function CortisolExperience() {
     gsap.ticker.add(tick);
     gsap.ticker.lagSmoothing(0);
 
-    const trigger = ScrollTrigger.create({
-      trigger: narrativeRef.current,
-      start: "top top",
-      end: "+=900%",
-      pin: true,
-      scrub: reducedMotion ? false : 0.8,
-      anticipatePin: 1,
-      onUpdate: (self) => {
-        const progress = self.progress;
-        const stage: ProjectCortisolGlobalState["scrollState"]["currentStage"] = progress < 0.18
-          ? "SANDBOX"
-          : progress < 0.32 ? "CLUSTER_ASSEMBLY" : "SINGLE_FOCUS";
-        const normalizedFocusProgress = Math.min(0.999999, Math.max(0, (progress - 0.32) / 0.68));
-        const focusPosition = normalizedFocusProgress * STATE_PROFILES.length;
-        const scrollFocusIndex = Math.min(STATE_PROFILES.length - 1, Math.floor(focusPosition));
-        const localFocusProgress = focusPosition - scrollFocusIndex;
-        scrollRef.current.progress = progress;
-        shellRef.current?.style.setProperty("--narrative-progress", String(progress));
-        shellRef.current?.style.setProperty("--cluster-progress", String(Math.min(1, Math.max(0, (progress - 0.18) / 0.14))));
-        shellRef.current?.style.setProperty("--focus-progress", String(stage === "SINGLE_FOCUS" ? localFocusProgress : 0));
-        const current = stateRef.current;
-        const autoProfile = resolveProfile(current.inputCoordinates.x, current.inputCoordinates.y);
-        const activeFocusMoodId = stage === "SINGLE_FOCUS"
-          ? STATE_PROFILES[scrollFocusIndex].id
-          : current.scrollState.activeFocusMoodId
+    const splitInstances: SplitText[] = [];
+    const activateMood = (moodId: string) => {
+      const current = stateRef.current;
+      if (current.scrollState.activeFocusMoodId === moodId && current.scrollState.currentStage === "SINGLE_FOCUS") return;
+      const next: ProjectCortisolGlobalState = {
+        ...current,
+        scrollState: { ...current.scrollState, currentStage: "SINGLE_FOCUS", activeFocusMoodId: moodId },
+      };
+      stateRef.current = next;
+      setState(next);
+    };
+
+    const context = gsap.context(() => {
+      const moodTiles = gsap.utils.toArray<HTMLElement>(".mood-tile");
+      const trigger = ScrollTrigger.create({
+        trigger: narrativeRef.current,
+        start: "top top",
+        end: "+=360%",
+        pin: true,
+        scrub: reducedMotion ? false : 0.75,
+        anticipatePin: 1,
+        onUpdate: (self) => {
+          const progress = self.progress;
+          const stage: ProjectCortisolGlobalState["scrollState"]["currentStage"] = progress < 0.24
+            ? "SANDBOX"
+            : progress < 0.68 ? "CLUSTER_ASSEMBLY" : "SINGLE_FOCUS";
+          const clusterProgress = Math.min(1, Math.max(0, (progress - 0.24) / 0.44));
+          const focusProgress = Math.min(1, Math.max(0, (progress - 0.68) / 0.32));
+          scrollRef.current.progress = progress;
+          shellRef.current?.style.setProperty("--narrative-progress", String(progress));
+          shellRef.current?.style.setProperty("--cluster-progress", String(clusterProgress));
+          shellRef.current?.style.setProperty("--focus-progress", String(focusProgress));
+          moodTiles.forEach((tile, index) => {
+            const layout = CLUSTER_LAYOUT[index];
+            const staggered = Math.min(1, Math.max(0, (clusterProgress - index * 0.055) / 0.62));
+            const eased = 1 - Math.pow(1 - staggered, 3);
+            tile.style.opacity = String(Math.min(1, staggered * 1.35));
+            tile.style.filter = `blur(${(1 - eased) * 11}px)`;
+            tile.style.transform = `perspective(1200px) translate3d(${layout.enterX * (1 - eased)}vw, ${layout.enterY * (1 - eased)}vh, ${layout.depth * (1 - eased)}px) scale(${0.42 + eased * 0.58}) rotate(${layout.rotate}deg)`;
+          });
+          const current = stateRef.current;
+          const autoProfile = resolveProfile(current.inputCoordinates.x, current.inputCoordinates.y);
+          const activeFocusMoodId = current.scrollState.activeFocusMoodId
             ?? (autoProfile.id === ORIGIN_PROFILE.id ? STATE_PROFILES[0].id : autoProfile.id);
-        current.scrollState.progress = progress;
-        if (current.scrollState.currentStage !== stage || current.scrollState.activeFocusMoodId !== activeFocusMoodId) {
-          const next: ProjectCortisolGlobalState = {
-            ...current,
-            scrollState: { currentStage: stage, progress, activeFocusMoodId },
-          };
-          stateRef.current = next;
-          setState(next);
+          current.scrollState.progress = progress;
+          if (current.scrollState.currentStage !== stage || current.scrollState.activeFocusMoodId !== activeFocusMoodId) {
+            const next: ProjectCortisolGlobalState = {
+              ...current,
+              scrollState: { currentStage: stage, progress, activeFocusMoodId },
+            };
+            stateRef.current = next;
+            setState(next);
+          }
+        },
+      });
+      scrollTriggerRef.current = trigger;
+
+      gsap.utils.toArray<HTMLElement>(".mood-detail").forEach((section, index) => {
+        const image = section.querySelector<HTMLElement>(".mood-detail__image");
+        const heading = section.querySelector<HTMLElement>(".mood-detail__editorial h2");
+        if (image && !reducedMotion) {
+          gsap.fromTo(image, { scale: 0.9, opacity: 0.52 }, {
+            scale: 1,
+            opacity: 1,
+            ease: "none",
+            scrollTrigger: { trigger: section, start: "top 88%", end: "top 24%", scrub: 0.7 },
+          });
         }
-      },
-    });
-    scrollTriggerRef.current = trigger;
+        if (heading && !reducedMotion) {
+          const split = SplitText.create(heading, { type: "lines", linesClass: "detail-heading-line" });
+          splitInstances.push(split);
+          gsap.from(split.lines, {
+            yPercent: 115,
+            opacity: 0,
+            duration: 0.78,
+            stagger: 0.075,
+            ease: "power3.out",
+            scrollTrigger: { trigger: section, start: "top 68%", toggleActions: "play none none reverse" },
+          });
+        }
+        ScrollTrigger.create({
+          trigger: section,
+          start: "top 52%",
+          end: "bottom 48%",
+          onEnter: () => activateMood(STATE_PROFILES[index].id),
+          onEnterBack: () => activateMood(STATE_PROFILES[index].id),
+        });
+      });
+
+      const quote = document.querySelector<HTMLElement>(".quote-motion-copy");
+      if (quote && !reducedMotion) {
+        const split = SplitText.create(quote, { type: "words", wordsClass: "quote-motion-word" });
+        splitInstances.push(split);
+        gsap.from(split.words, {
+          x: 90,
+          opacity: 0,
+          duration: 0.62,
+          stagger: 0.026,
+          ease: "power3.out",
+          scrollTrigger: { trigger: quote, start: "top 82%", toggleActions: "play none none reverse" },
+        });
+      }
+
+      const about = document.querySelector<HTMLElement>(".about-motion-copy");
+      if (about && !reducedMotion) {
+        const split = SplitText.create(about, { type: "lines", linesClass: "about-motion-line" });
+        splitInstances.push(split);
+        gsap.from(split.lines, {
+          yPercent: 125,
+          opacity: 0,
+          duration: 0.74,
+          stagger: 0.09,
+          ease: "power3.out",
+          scrollTrigger: { trigger: about, start: "top 86%", toggleActions: "play none none reverse" },
+        });
+      }
+    }, shellRef);
+
     ScrollTrigger.refresh();
     return () => {
-      trigger.kill();
+      context.revert();
+      splitInstances.forEach((split) => split.revert());
       lenis.destroy();
       lenisRef.current = null;
       scrollTriggerRef.current = null;
@@ -332,24 +428,17 @@ export function CortisolExperience() {
     };
   }, []);
 
-  useEffect(() => {
-    if (state.scrollState.currentStage !== "SINGLE_FOCUS" || !focusDescriptionRef.current) return;
-    const split = SplitText.create(focusDescriptionRef.current, { type: "lines", linesClass: "focus-copy-line" });
-    gsap.fromTo(split.lines, { yPercent: 110, opacity: 0 }, { yPercent: 0, opacity: 1, duration: 0.82, stagger: 0.07, ease: "power3.out" });
-    return () => split.revert();
-  }, [focusedProfile.id, state.scrollState.currentStage]);
-
   const togglePause = () => {
     pausedRef.current = !pausedRef.current;
     setPaused(pausedRef.current);
   };
 
   return (
-    <main ref={shellRef} className={`cortisol-shell ${loaded ? "is-loaded" : ""}`} data-stage={state.scrollState.currentStage}>
+    <main ref={shellRef} className={`cortisol-shell ${loaded ? "is-loaded" : ""}`} data-stage={state.scrollState.currentStage} style={glowStyle}>
       <div className={`preloader ${loaded ? "preloader--complete" : ""}`} aria-hidden={loaded}>
         <div className="preloader-mark">+</div>
         <div className="preloader-phase">
-          <span>{loadPercent < 80 ? "Gathering scattered light" : loadPercent < 100 ? "Slowing the spiral" : "Settling at center"}</span>
+          <span>{loadPercent < 80 ? "Drawing matter inward" : loadPercent < 100 ? "Folding into orbit" : "Breathing at center"}</span>
           <strong>{String(loadPercent).padStart(2, "0")}</strong>
         </div>
         <div className="preloader-line"><span style={{ transform: `scaleX(${loadPercent / 100})` }} /></div>
@@ -376,6 +465,7 @@ export function CortisolExperience() {
 
       <section id="experience" ref={narrativeRef} className="narrative-stage" aria-label="Project Cortisol emotional archetype experience">
         <section className="sandbox-stage" aria-label="Interactive emotional map">
+          <div className="homepage-edge-glow" aria-hidden="true" />
           <div
             ref={interactionRef}
             className="interaction-field"
@@ -413,16 +503,28 @@ export function CortisolExperience() {
             <p>{profile.visceralDescription}</p>
           </div>
 
-          <label className="axis-control axis-control--x interface-layer" data-axis="X">
-            <span>Expectation axis // [ -1.0 disappointment | +1.0 fulfillment ]</span>
-            <input type="range" min="-1" max="1" step="0.01" value={state.inputCoordinates.x} onChange={(event: ChangeEvent<HTMLInputElement>) => commitCoordinates(Number(event.target.value), stateRef.current.inputCoordinates.y)} aria-label="Expectation axis: disappointment to fulfillment" />
-            <output>{formatCoordinate(state.inputCoordinates.x)}</output>
-          </label>
-          <label className="axis-control axis-control--y interface-layer" data-axis="Y">
-            <span>Expression axis // [ -1.0 serenity | +1.0 anger ]</span>
-            <input type="range" min="-1" max="1" step="0.01" value={state.inputCoordinates.y} onChange={(event: ChangeEvent<HTMLInputElement>) => commitCoordinates(stateRef.current.inputCoordinates.x, Number(event.target.value))} aria-label="Expression axis: serenity to anger" />
-            <output>{formatCoordinate(state.inputCoordinates.y)}</output>
-          </label>
+          <fieldset className="mood-control-panel interface-layer">
+            <legend>Control the Mood Particle</legend>
+            <label className="axis-control">
+              <span className="axis-control__title">X / Expectation <output>{formatCoordinate(state.inputCoordinates.x)}</output></span>
+              <span className="axis-control__rail">
+                <span>Disappointment</span>
+                <input type="range" min="-1" max="1" step="0.01" value={state.inputCoordinates.x} onChange={(event: ChangeEvent<HTMLInputElement>) => commitCoordinates(Number(event.target.value), stateRef.current.inputCoordinates.y)} aria-label="Expectation axis: disappointment to fulfillment" />
+                <span>Fulfillment</span>
+              </span>
+              <span className="axis-control__ticks" aria-hidden="true"><span>-1</span><span>0</span><span>1</span></span>
+            </label>
+            <label className="axis-control">
+              <span className="axis-control__title">Y / Expression <output>{formatCoordinate(-state.inputCoordinates.y)}</output></span>
+              <span className="axis-control__rail">
+                <span>Anger</span>
+                <input type="range" min="-1" max="1" step="0.01" value={-state.inputCoordinates.y} onChange={(event: ChangeEvent<HTMLInputElement>) => commitCoordinates(stateRef.current.inputCoordinates.x, -Number(event.target.value))} aria-label="Expression axis: anger to serenity" />
+                <span>Serenity</span>
+              </span>
+              <span className="axis-control__ticks" aria-hidden="true"><span>-1</span><span>0</span><span>1</span></span>
+            </label>
+            <p className="mood-control-hint">Or click and drag around the space</p>
+          </fieldset>
 
           <div className="scroll-prompt interface-layer">
             <span>Scroll down to explore the 8 emotional archetypes</span>
@@ -433,7 +535,6 @@ export function CortisolExperience() {
         <section className="cluster-stage" aria-label="Eight emotional archetypes">
           <div className="cluster-heading">
             <span>Eight states / choose one or keep scrolling</span>
-            <p>The blurred intersections</p>
           </div>
           <div className="mood-cluster">
             {STATE_PROFILES.map((mood, index) => {
@@ -443,10 +544,14 @@ export function CortisolExperience() {
                 "--cluster-y": `${layout.y}%`,
                 "--cluster-size": `${layout.size}%`,
                 "--cluster-rotate": `${layout.rotate}deg`,
+                "--cluster-depth": `${layout.depth}px`,
+                "--cluster-enter-x": `${layout.enterX}vw`,
+                "--cluster-enter-y": `${layout.enterY}vh`,
+                "--cluster-delay": index * 0.055,
                 "--cluster-index": index,
               } as CSSProperties;
               return (
-                <button key={mood.id} type="button" className="mood-tile" style={style} onClick={() => selectMood(mood.id)} aria-label={`Focus ${mood.title}`}>
+                <button key={mood.id} type="button" className={`mood-tile ${mood.id === focusedProfile.id ? "is-selected" : ""}`} style={style} onClick={() => selectMood(mood.id)} aria-label={`Focus ${mood.title}`}>
                   <Image src={mood.imageAssetPath} alt="" fill sizes="(max-width: 760px) 42vw, 24vw" priority />
                   <span>[ {moodNumber(index)}{" // "}{mood.title} ]</span>
                 </button>
@@ -473,7 +578,7 @@ export function CortisolExperience() {
           <article key={`copy-${focusedProfile.id}`} className="focus-editorial">
             <p>State {moodNumber(focusIndex)}{" // "}{focusedProfile.title}</p>
             <h2>{FOCUS_SUBHEADS[focusedProfile.id]}</h2>
-            <p key={focusedProfile.id} ref={focusDescriptionRef} className="focus-description">{focusedProfile.visceralDescription}</p>
+            <p key={focusedProfile.id} className="focus-description">{focusedProfile.visceralDescription}</p>
             <footer>{focusedProfile.biometricHUD}</footer>
           </article>
           <nav className="mood-switcher" aria-label="Explore other moods">
@@ -490,9 +595,41 @@ export function CortisolExperience() {
         </section>
       </section>
 
+      <section className="mood-details" aria-label="Eight mood detail chapters">
+        {STATE_PROFILES.map((mood, index) => {
+          const previousMood = STATE_PROFILES[(index - 1 + STATE_PROFILES.length) % STATE_PROFILES.length];
+          const nextMood = STATE_PROFILES[(index + 1) % STATE_PROFILES.length];
+          return (
+            <section key={mood.id} id={moodSectionId(mood.id)} className="mood-detail" data-mood-id={mood.id} aria-labelledby={`${moodSectionId(mood.id)}-title`}>
+              <figure className="mood-detail__image">
+                <Image src={mood.imageAssetPath} alt={`${mood.title} visual study`} fill sizes="(max-width: 900px) 84vw, 42vw" />
+                <figcaption>{moodNumber(index)} / 08</figcaption>
+              </figure>
+              <article className="mood-detail__editorial">
+                <p>State {moodNumber(index)}{" // "}{mood.title}</p>
+                <h2 id={`${moodSectionId(mood.id)}-title`}>{FOCUS_SUBHEADS[mood.id]}</h2>
+                <p>{mood.visceralDescription}</p>
+                <footer>{mood.biometricHUD}</footer>
+              </article>
+              <nav className="mood-switcher detail-switcher" aria-label={`Explore moods from ${mood.title}`}>
+                <button type="button" className="switcher-arrow" onClick={() => selectMood(previousMood.id, true)} aria-label={`Previous mood: ${previousMood.title}`} title="Previous mood"><ChevronLeft aria-hidden="true" /></button>
+                <div className="switcher-track">
+                  {STATE_PROFILES.map((item, itemIndex) => (
+                    <button key={item.id} type="button" className={item.id === mood.id ? "is-active" : ""} onClick={() => selectMood(item.id, true)}>
+                      {moodNumber(itemIndex)} {item.title.replace("THE ", "")}
+                    </button>
+                  ))}
+                </div>
+                <button type="button" className="switcher-arrow" onClick={() => selectMood(nextMood.id, true)} aria-label={`Next mood: ${nextMood.title}`} title="Next mood"><ChevronRight aria-hidden="true" /></button>
+              </nav>
+            </section>
+          );
+        })}
+      </section>
+
       <section className="quote-stage" aria-labelledby="buried-emotions-quote">
         <p>Afterword / what the body keeps</p>
-        <blockquote id="buried-emotions-quote">&quot;Unexpressed emotions will never die. They are buried alive and will come forth later in uglier ways.&quot;</blockquote>
+        <blockquote id="buried-emotions-quote" className="quote-motion-copy">&quot;Unexpressed emotions will never die. They are buried alive and will come forth later in uglier ways.&quot;</blockquote>
         <div className="quote-context">
           <cite>Sigmund Freud</cite>
           <p>when we experience a painful or socially unacceptable emotion and refuse to process it, the conscious mind pushes it down into the unconscious. Because that emotional energy cannot simply vanish, it festers beneath the surface and eventually &quot;leaks out&quot; as anxiety, physical tension, irritability, or explosive mood swings</p>
@@ -501,7 +638,7 @@ export function CortisolExperience() {
 
       <section className="about-cortisol" aria-labelledby="about-project-cortisol">
         <p>Project Cortisol</p>
-        <h2 id="about-project-cortisol">An experimental website to experience visualization of our combined mood.</h2>
+        <h2 id="about-project-cortisol" className="about-motion-copy">An interactive digital space designed to explore and visualize our combined emotional states.</h2>
         <span>Arka Auzan</span>
       </section>
 

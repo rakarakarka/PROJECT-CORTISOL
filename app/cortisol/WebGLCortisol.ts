@@ -15,27 +15,33 @@ import {
 type ComputeVariable = ReturnType<GPUComputationRenderer["addVariable"]>;
 
 const CLOCK_EPSILON = 0.0001;
+const PARTICLE_BOUNDARY_RADIUS = 2.54 * 1.2;
 
 function smoothstep(min: number, max: number, value: number) {
   const normalized = Math.min(1, Math.max(0, (value - min) / (max - min)));
   return normalized * normalized * (3 - 2 * normalized);
 }
 
-function createTorusKnotTexture(gpu: GPUComputationRenderer, size: number) {
+function createBiologicalSphereTexture(gpu: GPUComputationRenderer, size: number) {
   const texture = gpu.createTexture();
   const data = texture.image.data as Float32Array;
   const count = size * size;
+  const goldenAngle = Math.PI * (3 - Math.sqrt(5));
   for (let index = 0; index < count; index += 1) {
-    const t = (index / count) * Math.PI * 2;
-    const p = 2;
-    const q = 3;
-    const tubeAngle = ((index * 0.61803398875) % 1) * Math.PI * 2;
-    const radius = 1.62 + 0.34 * Math.cos(q * t) + 0.16 * Math.cos(tubeAngle);
+    const shellIndex = index % GLOBAL_PARTICLE_CAP;
+    const shellLayer = Math.floor(index / GLOBAL_PARTICLE_CAP);
+    const normalized = shellIndex / Math.max(1, GLOBAL_PARTICLE_CAP - 1);
+    const y = 1 - normalized * 2;
+    const horizontalRadius = Math.sqrt(Math.max(0, 1 - y * y));
+    const angle = goldenAngle * shellIndex + shellLayer * 0.37;
+    const cellularNoise = Math.sin(angle * 3.0 + y * 7.0) * 0.07
+      + Math.cos(angle * 5.0 - y * 4.0) * 0.035;
+    const shellRadius = 1.82 + cellularNoise + (((shellIndex * 0.61803398875) % 1) - 0.5) * 0.08 + shellLayer * 0.015;
     const offset = index * 4;
-    data[offset] = radius * Math.cos(p * t) + 0.22 * Math.cos(tubeAngle) * Math.cos(p * t);
-    data[offset + 1] = radius * Math.sin(p * t) + 0.22 * Math.cos(tubeAngle) * Math.sin(p * t);
-    data[offset + 2] = 0.72 * Math.sin(q * t) + 0.22 * Math.sin(tubeAngle);
-    data[offset + 3] = index / count;
+    data[offset] = Math.cos(angle) * horizontalRadius * shellRadius;
+    data[offset + 1] = y * shellRadius;
+    data[offset + 2] = Math.sin(angle) * horizontalRadius * shellRadius;
+    data[offset + 3] = 0;
   }
   texture.needsUpdate = true;
   return texture;
@@ -77,14 +83,20 @@ export class WebGLCortisol {
     const computeSize = 176;
     this.gpu = new GPUComputationRenderer(computeSize, computeSize, this.renderer);
     this.gpu.setDataType(THREE.HalfFloatType);
-    const originTexture = createTorusKnotTexture(this.gpu, computeSize);
+    const originTexture = createBiologicalSphereTexture(this.gpu, computeSize);
     const velocityTexture = createVelocityTexture(this.gpu);
     this.positionVariable = this.gpu.addVariable("texturePosition", POSITION_SHADER, originTexture.clone());
     this.velocityVariable = this.gpu.addVariable("textureVelocity", VELOCITY_SHADER, velocityTexture);
     this.gpu.setVariableDependencies(this.positionVariable, [this.positionVariable, this.velocityVariable]);
     this.gpu.setVariableDependencies(this.velocityVariable, [this.positionVariable, this.velocityVariable]);
 
-    this.positionVariable.material.uniforms.uDelta = { value: 1 / 60 };
+    Object.assign(this.positionVariable.material.uniforms, {
+      uOriginTexture: { value: originTexture },
+      uTime: { value: 0 },
+      uDelta: { value: 1 / 60 },
+      uCoordinates: { value: new THREE.Vector2() },
+      uBoundaryRadius: { value: PARTICLE_BOUNDARY_RADIUS },
+    });
     Object.assign(this.velocityVariable.material.uniforms, {
       uOriginTexture: { value: originTexture },
       uTime: { value: 0 },
@@ -96,6 +108,7 @@ export class WebGLCortisol {
       uDamping: { value: 0.08 },
       uNoiseFrequency: { value: 0.06 },
       uEntropy: { value: 0.025 },
+      uBoundaryRadius: { value: PARTICLE_BOUNDARY_RADIUS },
       uScrollProgress: { value: 0 },
       uScrollVelocity: { value: 0 },
     });
@@ -171,17 +184,21 @@ export class WebGLCortisol {
     const step = Math.min(0.034, Math.max(CLOCK_EPSILON, delta));
     const { x, y } = state.inputCoordinates;
     const physics = samplePhysics(x, y);
+    const positionUniforms = this.positionVariable.material.uniforms;
     const velocityUniforms = this.velocityVariable.material.uniforms;
-    this.positionVariable.material.uniforms.uDelta.value = step;
+    positionUniforms.uTime.value = elapsed;
+    positionUniforms.uDelta.value = step;
+    positionUniforms.uCoordinates.value.set(x, y);
     velocityUniforms.uTime.value = elapsed;
     velocityUniforms.uDelta.value = step;
     velocityUniforms.uCoordinates.value.set(x, y);
-    velocityUniforms.uVelocityMax.value += (physics.velocityMax - velocityUniforms.uVelocityMax.value) * 0.055;
+    const controlledVelocityMax = Math.min(physics.velocityMax, 5.4);
+    velocityUniforms.uVelocityMax.value += (controlledVelocityMax - velocityUniforms.uVelocityMax.value) * 0.055;
     velocityUniforms.uViscosity.value += (physics.viscosity - velocityUniforms.uViscosity.value) * 0.055;
     velocityUniforms.uGravity.value += (physics.gravity - velocityUniforms.uGravity.value) * 0.055;
     velocityUniforms.uDamping.value += (physics.damping - velocityUniforms.uDamping.value) * 0.055;
     velocityUniforms.uNoiseFrequency.value += (physics.curlNoiseFrequency - velocityUniforms.uNoiseFrequency.value) * 0.055;
-    const targetEntropy = 0.025 + Math.max(y, 0) * 0.55 + Math.max(y, 0) * Math.max(-x, 0) * 0.2;
+    const targetEntropy = 0.02 + Math.max(y, 0) * 0.24 + Math.max(y, 0) * Math.max(-x, 0) * 0.08;
     velocityUniforms.uEntropy.value += (targetEntropy - velocityUniforms.uEntropy.value) * 0.055;
     velocityUniforms.uScrollProgress.value = scrollProgress;
     velocityUniforms.uScrollVelocity.value = THREE.MathUtils.clamp(scrollVelocity, -20, 20);

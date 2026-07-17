@@ -313,6 +313,17 @@ export function CortisolExperience() {
 
     const context = gsap.context(() => {
       const moodTiles = gsap.utils.toArray<HTMLElement>(".mood-tile");
+      const clusterPrompt = document.querySelector<HTMLElement>(".cluster-motion-copy");
+      let clusterPromptChars: HTMLElement[] = [];
+      if (clusterPrompt && !reducedMotion) {
+        const split = SplitText.create(clusterPrompt, { type: "chars", charsClass: "cluster-prompt-char" });
+        splitInstances.push(split);
+        clusterPromptChars = split.chars as HTMLElement[];
+        clusterPromptChars.forEach((character) => {
+          character.style.opacity = "0";
+          character.style.transform = "translate3d(32px, 0, 0)";
+        });
+      }
       const trigger = ScrollTrigger.create({
         trigger: narrativeRef.current,
         start: "top top",
@@ -331,6 +342,12 @@ export function CortisolExperience() {
           shellRef.current?.style.setProperty("--narrative-progress", String(progress));
           shellRef.current?.style.setProperty("--cluster-progress", String(clusterProgress));
           shellRef.current?.style.setProperty("--focus-progress", String(focusProgress));
+          clusterPromptChars.forEach((character, index) => {
+            const characterProgress = Math.min(1, Math.max(0, (clusterProgress - index * 0.009) / 0.34));
+            const characterEase = 1 - Math.pow(1 - characterProgress, 3);
+            character.style.opacity = String(characterEase);
+            character.style.transform = `translate3d(${(1 - characterEase) * 32}px, 0, 0)`;
+          });
           moodTiles.forEach((tile, index) => {
             const layout = CLUSTER_LAYOUT[index];
             const staggered = Math.min(1, Math.max(0, (clusterProgress - index * 0.055) / 0.62));
@@ -493,7 +510,7 @@ export function CortisolExperience() {
 
           <div className="thesis-copy interface-layer">
             <p>Project Cortisol</p>
-            <h1>An interactive map of human tension.</h1>
+            <h1>An&nbsp;interactive map of human tension.</h1>
             <p>We rarely feel just one emotion at a time. We exist in the blurred intersections between expectation and reality, energy and exhaustion. Use the dual controls to calibrate your current state of mind and visualize the emotional weight you are carrying.</p>
           </div>
 
@@ -534,7 +551,7 @@ export function CortisolExperience() {
 
         <section className="cluster-stage" aria-label="Eight emotional archetypes">
           <div className="cluster-heading">
-            <span>Eight states / choose one or keep scrolling</span>
+            <span className="cluster-motion-copy">Stop to feel and select the image, or continue to scroll</span>
           </div>
           <div className="mood-cluster">
             {STATE_PROFILES.map((mood, index) => {

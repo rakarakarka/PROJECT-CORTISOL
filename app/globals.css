@@ -480,8 +480,8 @@ a:focus-visible,
   z-index: 7;
   top: 94px;
   left: 24px;
-  width: calc(41.6667% - 48px);
-  max-width: 620px;
+  width: calc(45.8333% - 48px);
+  max-width: 700px;
   pointer-events: none;
 }
 
@@ -504,8 +504,8 @@ a:focus-visible,
 
 .thesis-copy h1 {
   margin: 0;
-  max-width: 560px;
-  font-size: clamp(36px, 4.8vw, 78px);
+  max-width: 700px;
+  font-size: clamp(34px, 4vw, 68px);
   font-weight: 400;
   line-height: 0.9;
   text-transform: uppercase;
@@ -688,6 +688,11 @@ a:focus-visible,
   line-height: 0.98;
   text-shadow: 0 0 24px #000, 0 0 64px #000;
   text-wrap: balance;
+}
+
+.cluster-prompt-char {
+  display: inline-block;
+  will-change: opacity, transform;
 }
 
 .mood-cluster {
@@ -1129,7 +1134,7 @@ a:focus-visible,
   .narrative-stage { min-height: 600px; }
   .interaction-field { inset: 64px 0 52px; }
   .thesis-copy { top: 84px; left: 16px; width: calc(62% - 24px); }
-  .thesis-copy h1 { font-size: clamp(34px, 8vw, 60px); }
+  .thesis-copy h1 { font-size: clamp(32px, 6vw, 50px); }
   .thesis-copy > p:last-child { font-size: 11px; }
   .current-mood { right: 16px; bottom: 82px; width: calc(42% - 20px); }
   .current-mood strong { font-size: clamp(27px, 7.5vw, 54px); }
@@ -1170,7 +1175,7 @@ a:focus-visible,
 @media (max-width: 560px) {
   .preloader-phase { padding-right: 16px; padding-left: 16px; }
   .thesis-copy { width: calc(100% - 32px); }
-  .thesis-copy h1 { font-size: clamp(32px, 11vw, 52px); }
+  .thesis-copy h1 { font-size: clamp(30px, 9.5vw, 48px); }
   .thesis-copy > p:last-child { max-width: 320px; font-size: 10px; line-height: 1.4; }
   .current-mood { right: 16px; bottom: 272px; width: calc(100% - 32px); padding: 12px; text-align: right; }
   .current-mood span { font-size: 8px; }

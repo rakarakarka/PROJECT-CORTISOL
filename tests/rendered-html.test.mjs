@@ -20,7 +20,8 @@ test("server-renders the complete emotional experience", async () => {
 
   const html = await response.text();
   assert.match(html, /<title>Project Cortisol \| Emotional Matter Study<\/title>/i);
-  assert.match(html, /An interactive map of human tension/i);
+  assert.match(html, /An(?:\s|&nbsp;|\u00a0)interactive map of human tension/i);
+  assert.match(html, /Stop to feel and select the image, or continue to scroll/i);
   assert.match(html, /We rarely feel just one emotion at a time/i);
   assert.match(html, /Bidirectional expectation and expression plane/i);
   assert.match(html, /Control the Mood Particle/i);
@@ -122,6 +123,9 @@ test("keeps the particle and continuous choreography contracts explicit", async 
   assert.match(experience, /layout\.depth \* \(1 - eased\)/);
   assert.match(experience, /mood-tile__surface/);
   assert.match(experience, /--float-duration/);
+  assert.match(experience, /cluster-motion-copy/);
+  assert.match(experience, /characterProgress/);
+  assert.match(experience, /clusterProgress - index \* 0\.009/);
   assert.doesNotMatch(experience, /layout\.rotate/);
   assert.match(experience, /selectMood/);
   assert.match(experience, /Math\.abs\(distance\) > 48/);
@@ -138,6 +142,7 @@ test("keeps the particle and continuous choreography contracts explicit", async 
   assert.match(css, /--mood-glow-a/);
   assert.match(css, /@keyframes moodTileFloat/);
   assert.match(css, /\.cluster-heading \{[\s\S]*?top: 50%/);
+  assert.match(css, /\.cluster-prompt-char/);
   assert.doesNotMatch(css, /rotate\(var\(--cluster-rotate\)\)/);
   assert.match(css, /\.mood-details/);
   assert.match(css, /\.mood-detail__editorial/);

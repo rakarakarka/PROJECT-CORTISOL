@@ -35,6 +35,30 @@
 
 * { box-sizing: border-box; }
 
+.andika-regular {
+  font-family: var(--font-andika), sans-serif;
+  font-weight: 400;
+  font-style: normal;
+}
+
+.andika-bold {
+  font-family: var(--font-andika), sans-serif;
+  font-weight: 700;
+  font-style: normal;
+}
+
+.andika-regular-italic {
+  font-family: var(--font-andika), sans-serif;
+  font-weight: 400;
+  font-style: italic;
+}
+
+.andika-bold-italic {
+  font-family: var(--font-andika), sans-serif;
+  font-weight: 700;
+  font-style: italic;
+}
+
 html {
   width: 100%;
   margin: 0;
@@ -49,7 +73,7 @@ body {
   overflow-x: hidden;
   background: var(--black);
   color: var(--white);
-  font-family: var(--font-geist-sans), Arial, sans-serif;
+  font-family: var(--font-andika), Arial, sans-serif;
   letter-spacing: 0;
 }
 
@@ -142,9 +166,9 @@ a:focus-visible,
   align-self: center;
   justify-self: center;
   color: var(--ice);
-  font-family: var(--font-geist-mono), monospace;
+  font-family: var(--font-andika), sans-serif;
   font-size: 42px;
-  font-weight: 300;
+  font-weight: 400;
 }
 
 .preloader-phase {
@@ -158,7 +182,7 @@ a:focus-visible,
 
 .preloader-phase span,
 .preloader-phase strong {
-  font-family: var(--font-geist-mono), monospace;
+  font-family: var(--font-andika), sans-serif;
   font-size: 10px;
   font-weight: 400;
   text-transform: uppercase;
@@ -219,15 +243,15 @@ a:focus-visible,
   gap: 10px;
   width: max-content;
   font-size: 11px;
-  font-weight: 620;
+  font-weight: 700;
   text-transform: uppercase;
 }
 
 .brand-mark {
   color: var(--ice);
-  font-family: var(--font-geist-mono), monospace;
+  font-family: var(--font-andika), sans-serif;
   font-size: 21px;
-  font-weight: 300;
+  font-weight: 400;
 }
 
 .session {
@@ -235,7 +259,7 @@ a:focus-visible,
   align-items: center;
   gap: 8px;
   color: var(--muted);
-  font-family: var(--font-geist-mono), monospace;
+  font-family: var(--font-andika), sans-serif;
   font-size: 9px;
   text-transform: uppercase;
 }
@@ -446,7 +470,7 @@ a:focus-visible,
   top: calc(50% + 9px);
   left: calc(50% + 9px);
   color: var(--dim);
-  font-family: var(--font-geist-mono), monospace;
+  font-family: var(--font-andika), sans-serif;
   font-size: 9px;
   pointer-events: none;
 }
@@ -468,7 +492,7 @@ a:focus-visible,
 .focus-editorial footer,
 .scroll-prompt,
 .mood-switcher {
-  font-family: var(--font-geist-mono), monospace;
+  font-family: var(--font-andika), sans-serif;
   font-size: 9px;
   text-transform: uppercase;
 }
@@ -482,7 +506,7 @@ a:focus-visible,
   margin: 0;
   max-width: 560px;
   font-size: clamp(36px, 4.8vw, 78px);
-  font-weight: 430;
+  font-weight: 400;
   line-height: 0.9;
   text-transform: uppercase;
 }
@@ -514,7 +538,7 @@ a:focus-visible,
 .current-mood strong {
   margin-top: 12px;
   font-size: clamp(28px, 4vw, 68px);
-  font-weight: 430;
+  font-weight: 400;
   line-height: 0.88;
 }
 .current-mood p {
@@ -539,7 +563,7 @@ a:focus-visible,
   color: var(--white);
   background: rgba(0, 0, 0, 0.76);
   backdrop-filter: blur(14px);
-  font-family: var(--font-geist-mono), monospace;
+  font-family: var(--font-andika), sans-serif;
   font-size: 9px;
   text-transform: uppercase;
 }
@@ -648,15 +672,27 @@ a:focus-visible,
 
 .cluster-heading {
   position: absolute;
-  z-index: 12;
-  top: 86px;
-  left: 24px;
+  z-index: 1;
+  top: 50%;
+  left: 50%;
+  width: min(86vw, 1080px);
   pointer-events: none;
+  transform: translate(-50%, -50%);
+  text-align: center;
 }
-.cluster-heading span { color: var(--muted); }
+.cluster-heading span {
+  display: block;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: clamp(32px, 4.6vw, 76px);
+  font-weight: 400;
+  line-height: 0.98;
+  text-shadow: 0 0 24px #000, 0 0 64px #000;
+  text-wrap: balance;
+}
 
 .mood-cluster {
   position: absolute;
+  z-index: 2;
   inset: 150px 24px 30px;
 }
 
@@ -669,23 +705,36 @@ a:focus-visible,
   aspect-ratio: 1;
   padding: 0;
   overflow: visible;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 0;
-  background: #050505;
+  border: 0;
+  background: transparent;
   cursor: pointer;
   opacity: 0;
   filter: blur(11px);
-  transform: perspective(1200px) translate3d(var(--cluster-enter-x), var(--cluster-enter-y), var(--cluster-depth)) scale(0.42) rotate(var(--cluster-rotate));
-  transition: border-color 220ms ease, box-shadow 220ms ease;
+  transform: perspective(1200px) translate3d(var(--cluster-enter-x), var(--cluster-enter-y), var(--cluster-depth)) scale(0.42);
   will-change: opacity, filter, transform;
 }
 
-.mood-tile.is-selected {
+.mood-tile__surface {
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: #050505;
+  animation: moodTileFloat var(--float-duration) ease-in-out var(--float-delay) infinite;
+  transition: border-color 220ms ease, box-shadow 220ms ease;
+  will-change: transform;
+}
+
+@keyframes moodTileFloat {
+  0%, 100% { transform: translate3d(0, calc(var(--float-distance) * -0.5), 0); }
+  50% { transform: translate3d(0, var(--float-distance), 0); }
+}
+
+.mood-tile.is-selected .mood-tile__surface {
   border-color: rgba(255, 255, 255, 0.58);
   box-shadow: 0 0 32px rgba(255, 255, 255, 0.08);
 }
 
-.mood-tile img,
+.mood-tile__surface img,
 .focus-image img {
   object-fit: cover;
   filter: saturate(0.78) contrast(1.08) brightness(0.78);
@@ -695,14 +744,21 @@ a:focus-visible,
 .mood-tile:hover,
 .mood-tile:focus-visible {
   z-index: 30;
+}
+
+.mood-tile:hover .mood-tile__surface,
+.mood-tile:focus-visible .mood-tile__surface {
   border-color: rgba(255, 255, 255, 0.58);
-  transform: perspective(1000px) translateZ(24px) scale(1.05) rotate(0deg);
+  box-shadow: 0 0 34px rgba(255, 255, 255, 0.09);
 }
 
 .mood-tile:hover img,
-.mood-tile:focus-visible img { filter: saturate(1) contrast(1.12) brightness(1); }
+.mood-tile:focus-visible img {
+  filter: saturate(1) contrast(1.12) brightness(1);
+  transform: scale(1.025);
+}
 
-.mood-tile span {
+.mood-tile__label {
   position: absolute;
   z-index: 3;
   right: 0;
@@ -710,7 +766,7 @@ a:focus-visible,
   padding: 5px 7px;
   color: var(--white);
   background: #000;
-  font-family: var(--font-geist-mono), monospace;
+  font-family: var(--font-andika), sans-serif;
   font-size: 9px;
   white-space: nowrap;
   opacity: 0;
@@ -718,8 +774,8 @@ a:focus-visible,
   transition: opacity 180ms ease, transform 180ms ease;
 }
 
-.mood-tile:hover span,
-.mood-tile:focus-visible span { opacity: 1; transform: translateY(0); }
+.mood-tile:hover .mood-tile__label,
+.mood-tile:focus-visible .mood-tile__label { opacity: 1; transform: translateY(0); }
 
 .focus-stage {
   display: grid;
@@ -752,7 +808,7 @@ a:focus-visible,
   padding: 4px 6px;
   color: var(--muted);
   background: rgba(0, 0, 0, 0.72);
-  font-family: var(--font-geist-mono), monospace;
+  font-family: var(--font-andika), sans-serif;
   font-size: 9px;
 }
 
@@ -782,7 +838,7 @@ a:focus-visible,
   max-width: 690px;
   margin: 0;
   font-size: clamp(30px, 4.3vw, 70px);
-  font-weight: 430;
+  font-weight: 400;
   line-height: 0.9;
   text-transform: uppercase;
 }
@@ -835,7 +891,7 @@ a:focus-visible,
   color: var(--dim);
   background: transparent;
   cursor: pointer;
-  font-family: var(--font-geist-mono), monospace;
+  font-family: var(--font-andika), sans-serif;
   font-size: 9px;
   text-transform: uppercase;
   transition: color 180ms ease, background 180ms ease;
@@ -894,7 +950,7 @@ a:focus-visible,
   padding: 4px 6px;
   color: var(--muted);
   background: rgba(0, 0, 0, 0.72);
-  font-family: var(--font-geist-mono), monospace;
+  font-family: var(--font-andika), sans-serif;
   font-size: 9px;
 }
 
@@ -912,7 +968,7 @@ a:focus-visible,
 .mood-detail__editorial > p:first-child,
 .mood-detail__editorial footer {
   color: var(--muted);
-  font-family: var(--font-geist-mono), monospace;
+  font-family: var(--font-andika), sans-serif;
   font-size: 9px;
   text-transform: uppercase;
 }
@@ -923,7 +979,7 @@ a:focus-visible,
   max-width: 720px;
   margin: 0;
   font-size: clamp(30px, 4.3vw, 70px);
-  font-weight: 430;
+  font-weight: 400;
   line-height: 0.9;
   text-transform: uppercase;
 }
@@ -975,7 +1031,7 @@ a:focus-visible,
 .about-cortisol > p,
 .about-cortisol > span,
 .quote-context {
-  font-family: var(--font-geist-mono), monospace;
+  font-family: var(--font-andika), sans-serif;
   font-size: 9px;
   text-transform: uppercase;
 }
@@ -990,7 +1046,7 @@ a:focus-visible,
   grid-column: 3 / -1;
   margin: 8svh 0 10svh;
   font-size: clamp(38px, 6.5vw, 106px);
-  font-weight: 430;
+  font-weight: 400;
   line-height: 0.91;
   text-wrap: balance;
 }
@@ -1038,7 +1094,7 @@ a:focus-visible,
   max-width: 980px;
   margin: 0;
   font-size: clamp(34px, 5.2vw, 84px);
-  font-weight: 430;
+  font-weight: 400;
   line-height: 0.92;
   text-transform: uppercase;
 }
@@ -1060,7 +1116,7 @@ a:focus-visible,
   border-top: 1px solid var(--line);
   background: #000;
   color: var(--muted);
-  font-family: var(--font-geist-mono), monospace;
+  font-family: var(--font-andika), sans-serif;
   font-size: 9px;
   text-transform: uppercase;
 }
@@ -1082,7 +1138,8 @@ a:focus-visible,
   .axis-control__rail { grid-template-columns: minmax(64px, auto) minmax(70px, 1fr) minmax(58px, auto); gap: 7px; }
   .axis-control__ticks { margin-right: 64px; margin-left: 71px; }
   .scroll-prompt { right: 16px; bottom: 10px; }
-  .cluster-heading { top: 76px; left: 16px; }
+  .cluster-heading { top: 50%; left: 50%; width: min(88vw, 720px); }
+  .cluster-heading span { font-size: clamp(28px, 6.2vw, 54px); }
   .mood-cluster { inset: 132px 12px 24px; }
   .mood-tile { width: calc(var(--cluster-size) * 1.25); }
   .focus-stage { grid-template-rows: 42% 1fr 64px; padding-top: 72px; }
@@ -1126,9 +1183,11 @@ a:focus-visible,
   .axis-control__ticks { margin-right: 70px; margin-left: 77px; }
   .mood-control-hint { margin-bottom: -10px; padding-top: 8px; padding-bottom: 8px; }
   .scroll-prompt { max-width: 220px; text-align: right; }
+  .cluster-heading { width: calc(100% - 32px); }
+  .cluster-heading span { font-size: clamp(24px, 8vw, 40px); }
   .mood-cluster { inset: 142px 8px 28px; }
   .mood-tile { width: calc(var(--cluster-size) * 1.45); }
-  .mood-tile span { display: none; }
+  .mood-tile__label { display: none; }
   .focus-stage { grid-template-rows: 38% 1fr 58px; }
   .focus-image { width: min(72vw, 34svh); }
   .focus-editorial > p:first-child { margin-bottom: 10px; }
@@ -1172,9 +1231,12 @@ a:focus-visible,
   .scroll-prompt svg { animation: none !important; }
   .interface-layer,
   .mood-tile,
+  .mood-tile__surface,
   .sandbox-stage,
   .cluster-stage,
   .focus-stage,
   .mood-detail__image,
   .preloader { transition: none; }
+
+  .mood-tile__surface { animation: none; }
 }

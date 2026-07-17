@@ -30,14 +30,14 @@ import { WebGLCortisol } from "./cortisol/WebGLCortisol";
 
 const LOAD_DURATION = 2800;
 const CLUSTER_LAYOUT = [
-  { x: 5, y: 13, size: 18, rotate: -4, depth: -760, enterX: -34, enterY: -18 },
-  { x: 29, y: 3, size: 13, rotate: 3, depth: -420, enterX: 18, enterY: -31 },
-  { x: 51, y: 17, size: 16, rotate: -2, depth: -940, enterX: -8, enterY: 26 },
-  { x: 78, y: 7, size: 14, rotate: 4, depth: -560, enterX: 31, enterY: -16 },
-  { x: 12, y: 60, size: 13, rotate: 3, depth: -880, enterX: -26, enterY: 24 },
-  { x: 35, y: 48, size: 18, rotate: -3, depth: -350, enterX: 12, enterY: 32 },
-  { x: 62, y: 59, size: 12, rotate: 2, depth: -690, enterX: -16, enterY: 28 },
-  { x: 81, y: 46, size: 16, rotate: -4, depth: -1020, enterX: 28, enterY: 18 },
+  { x: 5, y: 13, size: 18, depth: -760, enterX: -34, enterY: -18 },
+  { x: 29, y: 3, size: 13, depth: -420, enterX: 18, enterY: -31 },
+  { x: 51, y: 17, size: 16, depth: -940, enterX: -8, enterY: 26 },
+  { x: 78, y: 7, size: 14, depth: -560, enterX: 31, enterY: -16 },
+  { x: 12, y: 60, size: 13, depth: -880, enterX: -26, enterY: 24 },
+  { x: 35, y: 48, size: 18, depth: -350, enterX: 12, enterY: 32 },
+  { x: 62, y: 59, size: 12, depth: -690, enterX: -16, enterY: 28 },
+  { x: 81, y: 46, size: 16, depth: -1020, enterX: 28, enterY: 18 },
 ] as const;
 
 const FOCUS_SUBHEADS: Record<string, string> = {
@@ -337,7 +337,7 @@ export function CortisolExperience() {
             const eased = 1 - Math.pow(1 - staggered, 3);
             tile.style.opacity = String(Math.min(1, staggered * 1.35));
             tile.style.filter = `blur(${(1 - eased) * 11}px)`;
-            tile.style.transform = `perspective(1200px) translate3d(${layout.enterX * (1 - eased)}vw, ${layout.enterY * (1 - eased)}vh, ${layout.depth * (1 - eased)}px) scale(${0.42 + eased * 0.58}) rotate(${layout.rotate}deg)`;
+            tile.style.transform = `perspective(1200px) translate3d(${layout.enterX * (1 - eased)}vw, ${layout.enterY * (1 - eased)}vh, ${layout.depth * (1 - eased)}px) scale(${0.42 + eased * 0.58})`;
           });
           const current = stateRef.current;
           const autoProfile = resolveProfile(current.inputCoordinates.x, current.inputCoordinates.y);
@@ -543,17 +543,21 @@ export function CortisolExperience() {
                 "--cluster-x": `${layout.x}%`,
                 "--cluster-y": `${layout.y}%`,
                 "--cluster-size": `${layout.size}%`,
-                "--cluster-rotate": `${layout.rotate}deg`,
                 "--cluster-depth": `${layout.depth}px`,
                 "--cluster-enter-x": `${layout.enterX}vw`,
                 "--cluster-enter-y": `${layout.enterY}vh`,
                 "--cluster-delay": index * 0.055,
                 "--cluster-index": index,
+                "--float-duration": `${7.2 + (index % 4) * 0.7}s`,
+                "--float-delay": `${index * -0.83}s`,
+                "--float-distance": `${7 + (index % 3) * 2}px`,
               } as CSSProperties;
               return (
                 <button key={mood.id} type="button" className={`mood-tile ${mood.id === focusedProfile.id ? "is-selected" : ""}`} style={style} onClick={() => selectMood(mood.id)} aria-label={`Focus ${mood.title}`}>
-                  <Image src={mood.imageAssetPath} alt="" fill sizes="(max-width: 760px) 42vw, 24vw" priority />
-                  <span>[ {moodNumber(index)}{" // "}{mood.title} ]</span>
+                  <span className="mood-tile__surface">
+                    <Image src={mood.imageAssetPath} alt="" fill sizes="(max-width: 760px) 42vw, 24vw" priority />
+                    <span className="mood-tile__label">[ {moodNumber(index)}{" // "}{mood.title} ]</span>
+                  </span>
                 </button>
               );
             })}

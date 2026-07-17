@@ -120,6 +120,9 @@ test("keeps the particle and continuous choreography contracts explicit", async 
   assert.match(experience, /quote-motion-copy/);
   assert.match(experience, /about-motion-copy/);
   assert.match(experience, /layout\.depth \* \(1 - eased\)/);
+  assert.match(experience, /mood-tile__surface/);
+  assert.match(experience, /--float-duration/);
+  assert.doesNotMatch(experience, /layout\.rotate/);
   assert.match(experience, /selectMood/);
   assert.match(experience, /Math\.abs\(distance\) > 48/);
   assert.match(experience, /requestAnimationFrame\(frame\)/);
@@ -133,6 +136,9 @@ test("keeps the particle and continuous choreography contracts explicit", async 
   assert.match(css, /\.mood-control-panel/);
   assert.match(css, /\.homepage-edge-glow/);
   assert.match(css, /--mood-glow-a/);
+  assert.match(css, /@keyframes moodTileFloat/);
+  assert.match(css, /\.cluster-heading \{[\s\S]*?top: 50%/);
+  assert.doesNotMatch(css, /rotate\(var\(--cluster-rotate\)\)/);
   assert.match(css, /\.mood-details/);
   assert.match(css, /\.mood-detail__editorial/);
   assert.match(css, /@media \(max-width: 900px\)/);
@@ -141,6 +147,8 @@ test("keeps the particle and continuous choreography contracts explicit", async 
   assert.match(page, /<CortisolExperience \/>/);
   assert.match(layout, /from "@vercel\/analytics\/next"/);
   assert.match(layout, /<Analytics \/>/);
+  assert.match(layout, /import \{ Andika \} from "next\/font\/google"/);
+  assert.match(layout, /weight: \["400", "700"\]/);
   assert.match(packageJson, /"three"/);
   assert.match(packageJson, /"lenis"/);
   assert.match(packageJson, /"gsap"/);

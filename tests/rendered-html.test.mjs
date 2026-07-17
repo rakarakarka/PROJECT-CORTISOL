@@ -13,7 +13,7 @@ async function render() {
   );
 }
 
-test("server-renders the Sol 5.6 emotional experience", async () => {
+test("server-renders the complete emotional experience", async () => {
   const response = await render();
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
@@ -34,12 +34,16 @@ test("server-renders the Sol 5.6 emotional experience", async () => {
   assert.match(html, /The Limbo/i);
   assert.match(html, /The Stasis/i);
   assert.match(html, /The Horizon/i);
+  assert.match(html, /Unexpressed emotions will never die/i);
+  assert.match(html, /an experimental website to experience visualization of our combined mood/i);
+  assert.match(html, /Arka Auzan/i);
   assert.equal((html.match(/type="range"[^>]*min="-1"[^>]*max="1"/gi) ?? []).length, 2);
   assert.match(html, /rel="icon"[^>]*href="\/favicon\.svg"/i);
+  assert.doesNotMatch(html, /Sol 5\.6/i);
   assert.doesNotMatch(html, /autonomic|stochastic|neural matter ingestion/i);
 });
 
-test("keeps the Sol 5.6 state, particle, and choreography contracts explicit", async () => {
+test("keeps the particle and continuous choreography contracts explicit", async () => {
   const [experience, model, profiles, renderer, shaders, css, page, layout, packageJson] = await Promise.all([
     readFile(new URL("../app/CortisolExperience.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/cortisol/model.ts", import.meta.url), "utf8"),
@@ -54,8 +58,8 @@ test("keeps the Sol 5.6 state, particle, and choreography contracts explicit", a
 
   assert.match(model, /interface MoodProfile/);
   assert.match(model, /interface ProjectCortisolGlobalState/);
-  assert.match(model, /GLOBAL_PARTICLE_CAP = 15_000/);
-  assert.match(model, /PRELOADER_PARTICLE_COUNT = 25_000/);
+  assert.match(model, /GLOBAL_PARTICLE_CAP = 18_000/);
+  assert.match(model, /PRELOADER_PARTICLE_COUNT = 30_000/);
   assert.match(model, /AXIS_TOLERANCE = 0\.05/);
   assert.match(model, /currentStage: "SANDBOX" \| "CLUSTER_ASSEMBLY" \| "SINGLE_FOCUS"/);
   assert.match(model, /lerp: 0\.075/);
@@ -65,7 +69,7 @@ test("keeps the Sol 5.6 state, particle, and choreography contracts explicit", a
   assert.equal((profiles.match(/quadrant: "(?:I|II|III|IV|AXIS_TOP|AXIS_LEFT|AXIS_BOTTOM|AXIS_RIGHT)"/g) ?? []).length, 8);
   assert.equal((profiles.match(/imageAssetPath: "\/assets\/images\/image_0[1-8]_[^"]+\.jpg"/g) ?? []).length, 8);
   assert.match(profiles, /velocityMax: 12/);
-  assert.match(profiles, /isCagedSwarm: true/);
+  assert.doesNotMatch(profiles, /isCagedSwarm/);
   assert.match(profiles, /function bilinear/);
   assert.match(profiles, /samplePhysics/);
 
@@ -74,17 +78,20 @@ test("keeps the Sol 5.6 state, particle, and choreography contracts explicit", a
   assert.match(renderer, /HalfFloatType/);
   assert.match(renderer, /AdditiveBlending/);
   assert.match(renderer, /depthTest: false/);
-  assert.match(renderer, /const computeSize = 160/);
+  assert.match(renderer, /const computeSize = 176/);
   assert.match(renderer, /PRELOADER_PARTICLE_COUNT/);
   assert.match(renderer, /GLOBAL_PARTICLE_CAP/);
-  assert.match(renderer, /pixelRadius = Math\.min\(400/);
+  assert.match(renderer, /uVelocityTexture/);
+  assert.match(renderer, /uScrollVelocity/);
+  assert.doesNotMatch(renderer, /cageBounds|uCageBounds|uIsCagedSwarm/);
 
-  assert.match(shaders, /uIsCagedSwarm/);
-  assert.match(shaders, /uCageBounds/);
-  assert.match(shaders, /velocity\.x \*= -0\.96/);
+  assert.doesNotMatch(shaders, /uIsCagedSwarm|uCageBounds|distanceFromOrigin/);
   assert.match(shaders, /exp\(-0\.05/);
-  assert.match(shaders, /particleIndex \/ 25000\.0/);
+  assert.match(shaders, /particleIndex \/ 30000\.0/);
   assert.match(shaders, /curlField/);
+  assert.match(shaders, /generativeFlow/);
+  assert.match(shaders, /uVelocityTexture/);
+  assert.match(shaders, /20\.0/);
   assert.match(shaders, /4\.5/);
   assert.match(shaders, /1\.2/);
   assert.match(shaders, /0\.035/);
@@ -92,8 +99,10 @@ test("keeps the Sol 5.6 state, particle, and choreography contracts explicit", a
   assert.match(experience, /new Lenis/);
   assert.match(experience, /SplitText/);
   assert.match(experience, /pin: true/);
-  assert.match(experience, /progress < 0\.25/);
-  assert.match(experience, /progress < 0\.6/);
+  assert.match(experience, /end: "\+=900%"/);
+  assert.match(experience, /progress < 0\.18/);
+  assert.match(experience, /progress < 0\.32/);
+  assert.match(experience, /focusPosition = normalizedFocusProgress \* STATE_PROFILES\.length/);
   assert.match(experience, /selectMood/);
   assert.match(experience, /Math\.abs\(distance\) > 48/);
   assert.match(experience, /requestAnimationFrame\(frame\)/);

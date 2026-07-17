@@ -59,8 +59,6 @@ export class WebGLCortisol {
   private particles: THREE.Points;
   private composer: EffectComposer;
   private afterimagePass: AfterimagePass;
-  private dimensions = { width: 1, height: 1 };
-  private cageBounds = new THREE.Vector3(3.2, 3.2, 2.2);
   private failed = false;
 
   constructor(canvas: HTMLCanvasElement) {
@@ -76,7 +74,7 @@ export class WebGLCortisol {
     this.renderer.autoClear = true;
     this.camera.position.z = 7;
 
-    const computeSize = 160;
+    const computeSize = 176;
     this.gpu = new GPUComputationRenderer(computeSize, computeSize, this.renderer);
     this.gpu.setDataType(THREE.HalfFloatType);
     const originTexture = createTorusKnotTexture(this.gpu, computeSize);
@@ -99,8 +97,7 @@ export class WebGLCortisol {
       uNoiseFrequency: { value: 0.06 },
       uEntropy: { value: 0.025 },
       uScrollProgress: { value: 0 },
-      uIsCagedSwarm: { value: 0 },
-      uCageBounds: { value: this.cageBounds },
+      uScrollVelocity: { value: 0 },
     });
 
     const initError = this.gpu.init();
@@ -126,6 +123,7 @@ export class WebGLCortisol {
     this.particleMaterial = new THREE.ShaderMaterial({
       uniforms: {
         uPositionTexture: { value: null },
+        uVelocityTexture: { value: null },
         uTime: { value: 0 },
         uLoadPhase: { value: 0 },
         uScrollProgress: { value: 0 },
@@ -149,24 +147,15 @@ export class WebGLCortisol {
 
     this.composer = new EffectComposer(this.renderer);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
-    this.afterimagePass = new AfterimagePass(0.88);
+    this.afterimagePass = new AfterimagePass(0.84);
     this.composer.addPass(this.afterimagePass);
   }
 
   resize(width: number, height: number) {
-    this.dimensions = { width, height };
     this.renderer.setSize(width, height, false);
     this.composer.setSize(width, height);
     this.camera.aspect = width / Math.max(1, height);
     this.camera.updateProjectionMatrix();
-    const visibleHeight = 2 * Math.tan(THREE.MathUtils.degToRad(this.camera.fov * 0.5)) * this.camera.position.z;
-    const visibleWidth = visibleHeight * this.camera.aspect;
-    const pixelRadius = Math.min(400, width * 0.42, height * 0.42);
-    this.cageBounds.set(
-      (pixelRadius / Math.max(1, width)) * visibleWidth,
-      (pixelRadius / Math.max(1, height)) * visibleHeight,
-      2.2,
-    );
     this.particleMaterial.uniforms.uPointScale.value = Math.min(window.devicePixelRatio || 1, 1.5) * 11;
   }
 
@@ -195,14 +184,14 @@ export class WebGLCortisol {
     const targetEntropy = 0.025 + Math.max(y, 0) * 0.55 + Math.max(y, 0) * Math.max(-x, 0) * 0.2;
     velocityUniforms.uEntropy.value += (targetEntropy - velocityUniforms.uEntropy.value) * 0.055;
     velocityUniforms.uScrollProgress.value = scrollProgress;
-    velocityUniforms.uIsCagedSwarm.value += ((physics.isCagedSwarm ? 1 : 0) - velocityUniforms.uIsCagedSwarm.value) * 0.12;
-    velocityUniforms.uCageBounds.value.copy(this.cageBounds);
+    velocityUniforms.uScrollVelocity.value = THREE.MathUtils.clamp(scrollVelocity, -20, 20);
     this.gpu.compute();
 
     const active = resolveProfile(x, y);
     const visual = MOOD_VISUALS[active.id];
     const particleUniforms = this.particleMaterial.uniforms;
     particleUniforms.uPositionTexture.value = this.gpu.getCurrentRenderTarget(this.positionVariable).texture;
+    particleUniforms.uVelocityTexture.value = this.gpu.getCurrentRenderTarget(this.velocityVariable).texture;
     particleUniforms.uTime.value = elapsed;
     particleUniforms.uLoadPhase.value = loadPhase;
     particleUniforms.uScrollProgress.value = scrollProgress;
@@ -210,10 +199,10 @@ export class WebGLCortisol {
     particleUniforms.uActiveParticleCount.value = loadPhase < 1 ? PRELOADER_PARTICLE_COUNT : GLOBAL_PARTICLE_CAP;
     particleUniforms.uColorA.value.setRGB(...visual.colorA);
     particleUniforms.uColorB.value.setRGB(...visual.colorB);
-    particleUniforms.uOpacity.value = 1 - smoothstep(0.25, 0.6, scrollProgress) * 0.7 - smoothstep(0.6, 0.82, scrollProgress) * 0.18;
+    particleUniforms.uOpacity.value = 1 - smoothstep(0.18, 0.32, scrollProgress) * 0.7 - smoothstep(0.32, 0.48, scrollProgress) * 0.18;
 
     const disappointment = Math.max(-x, 0);
-    this.afterimagePass.uniforms.damp.value = 0.88 + disappointment * 0.07;
+    this.afterimagePass.uniforms.damp.value = 0.84 + disappointment * 0.08;
     this.composer.render();
   }
 

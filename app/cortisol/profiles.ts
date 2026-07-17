@@ -18,7 +18,7 @@ export const STATE_PROFILES: MoodProfile[] = [
     visceralDescription: "A sudden, overwhelming rush of validation. Your chest opens, your pulse accelerates, and every nerve feels charged with clean, unstoppable forward momentum. It is the absolute absence of doubt - pure, uncontained victory.",
     biometricHUD: "BIOMETRIC MAP // OPEN CHEST // FAST PULSE // FULL KINETIC RELEASE",
     imageAssetPath: "/assets/images/image_01_triumph.jpg",
-    physicsConfig: { maxParticles: GLOBAL_PARTICLE_CAP, velocityMax: 12, viscosity: 0.04, gravity: -4.5, damping: 0.02, curlNoiseFrequency: 0.72, isCagedSwarm: false },
+    physicsConfig: { maxParticles: GLOBAL_PARTICLE_CAP, velocityMax: 12, viscosity: 0.04, gravity: -4.5, damping: 0.02, curlNoiseFrequency: 0.72 },
   },
   {
     id: "02_BOILING_TAR",
@@ -28,7 +28,7 @@ export const STATE_PROFILES: MoodProfile[] = [
     visceralDescription: "You want to scream, but there is nowhere for the sound to go. This is the suffocating weight of intense anger trapped inside the cold realization that your expectations were shattered. Your jaw clenches, your shoulders lock, and your energy churns endlessly in place, burning you out from the inside.",
     biometricHUD: "BIOMETRIC MAP // HIGH SYMPATHETIC TENSION // SHALLOW RESPIRATION // RESTRICTED KINETIC RELEASE",
     imageAssetPath: "/assets/images/image_02_resentment.jpg",
-    physicsConfig: { maxParticles: GLOBAL_PARTICLE_CAP, velocityMax: 12, viscosity: 0.95, gravity: 4.5, damping: 0.1, curlNoiseFrequency: 0.75, isCagedSwarm: true },
+    physicsConfig: { maxParticles: GLOBAL_PARTICLE_CAP, velocityMax: 12, viscosity: 0.78, gravity: 3.2, damping: 0.06, curlNoiseFrequency: 0.75 },
   },
   {
     id: "03_SOMBER_GRACE",
@@ -38,7 +38,7 @@ export const STATE_PROFILES: MoodProfile[] = [
     visceralDescription: "The fight is over. You have stopped pushing against what went wrong and simply let the exhaustion wash over you. It is a quiet, heavy sadness - the slow, peaceful surrender of letting go of what you hoped would happen. Everything feels slow, muted, and still.",
     biometricHUD: "BIOMETRIC MAP // HEAVY LIMBS // SLOW BREATH // QUIET RELEASE",
     imageAssetPath: "/assets/images/image_03_melancholy.jpg",
-    physicsConfig: { maxParticles: GLOBAL_PARTICLE_CAP, velocityMax: 1.05, viscosity: 0.82, gravity: 9.8, damping: 0.15, curlNoiseFrequency: 0.08, isCagedSwarm: false },
+    physicsConfig: { maxParticles: GLOBAL_PARTICLE_CAP, velocityMax: 1.35, viscosity: 0.68, gravity: 7.4, damping: 0.11, curlNoiseFrequency: 0.08 },
   },
   {
     id: "04_PRISTINE_NIRVANA",
@@ -48,7 +48,7 @@ export const STATE_PROFILES: MoodProfile[] = [
     visceralDescription: "Total, absolute equilibrium. Your breathing is slow and deep, your muscles are completely relaxed, and your mind is perfectly quiet. You need nothing to change, nothing to happen, and nothing to prove. You are entirely safe, resting in the warmth of the present moment.",
     biometricHUD: "BIOMETRIC MAP // DEEP BREATH // SOFT MUSCLES // COMPLETE EASE",
     imageAssetPath: "/assets/images/image_04_stillness.jpg",
-    physicsConfig: { maxParticles: GLOBAL_PARTICLE_CAP, velocityMax: 0.82, viscosity: 0.12, gravity: 0, damping: 0.09, curlNoiseFrequency: 0.04, isCagedSwarm: false },
+    physicsConfig: { maxParticles: GLOBAL_PARTICLE_CAP, velocityMax: 1.1, viscosity: 0.08, gravity: 0, damping: 0.06, curlNoiseFrequency: 0.04 },
   },
   {
     id: "05_THE_FUSE",
@@ -58,7 +58,7 @@ export const STATE_PROFILES: MoodProfile[] = [
     visceralDescription: "Your entire body is on high alert, vibrating with raw energy, but you don't know yet whether to fight or celebrate. It is the razor-thin microsecond of suspense right before news drops - a tight, electric buzzing in your chest where anything could happen next.",
     biometricHUD: "BIOMETRIC MAP // BUZZING CHEST // HELD BREATH // VOLATILE RELEASE",
     imageAssetPath: "/assets/images/image_05_volatility.jpg",
-    physicsConfig: { maxParticles: GLOBAL_PARTICLE_CAP, velocityMax: 12, viscosity: 0.03, gravity: -1.4, damping: 0.02, curlNoiseFrequency: 0.94, isCagedSwarm: true },
+    physicsConfig: { maxParticles: GLOBAL_PARTICLE_CAP, velocityMax: 12, viscosity: 0.03, gravity: -1.4, damping: 0.02, curlNoiseFrequency: 0.94 },
   },
   {
     id: "06_THE_LIMBO",
@@ -68,7 +68,7 @@ export const STATE_PROFILES: MoodProfile[] = [
     visceralDescription: "Complete cognitive shutdown. The bad news has landed, but your mind hasn't decided how to react yet. You feel nothing at all - a cold, hollow numbness where time seems to slow down and everything around you feels detached, distant, and unreal.",
     biometricHUD: "BIOMETRIC MAP // COLD NUMBNESS // DISTANT FOCUS // MINIMAL RESPONSE",
     imageAssetPath: "/assets/images/image_06_numbness.jpg",
-    physicsConfig: { maxParticles: GLOBAL_PARTICLE_CAP, velocityMax: 0.42, viscosity: 0.9, gravity: 6.4, damping: 0.14, curlNoiseFrequency: 0.04, isCagedSwarm: false },
+    physicsConfig: { maxParticles: GLOBAL_PARTICLE_CAP, velocityMax: 0.62, viscosity: 0.78, gravity: 5.2, damping: 0.1, curlNoiseFrequency: 0.04 },
   },
   {
     id: "07_THE_STASIS",
@@ -78,7 +78,7 @@ export const STATE_PROFILES: MoodProfile[] = [
     visceralDescription: "You have deliberately unplugged from the noise of the world. By expecting nothing and reacting to nothing, you create a fortress of absolute silence inside your mind. It is deep, restorative isolation - heavy, quiet, and completely untouched by external stress.",
     biometricHUD: "BIOMETRIC MAP // DEEP REST // QUIET SENSES // SEALED CALM",
     imageAssetPath: "/assets/images/image_07_stasis.jpg",
-    physicsConfig: { maxParticles: GLOBAL_PARTICLE_CAP, velocityMax: 0.7, viscosity: 0.22, gravity: 0, damping: 0.11, curlNoiseFrequency: 0.03, isCagedSwarm: false },
+    physicsConfig: { maxParticles: GLOBAL_PARTICLE_CAP, velocityMax: 0.92, viscosity: 0.16, gravity: 0, damping: 0.08, curlNoiseFrequency: 0.03 },
   },
   {
     id: "08_THE_HORIZON",
@@ -88,7 +88,7 @@ export const STATE_PROFILES: MoodProfile[] = [
     visceralDescription: "A long, deep exhale. The threat is gone, the work is done, and a profound wave of relief washes through your body. You feel warm, unburdened, and deeply content just sitting back and letting the world exist around you without needing to control it.",
     biometricHUD: "BIOMETRIC MAP // LONG EXHALE // WARM CHEST // FULL RELEASE",
     imageAssetPath: "/assets/images/image_08_relief.jpg",
-    physicsConfig: { maxParticles: GLOBAL_PARTICLE_CAP, velocityMax: 2.4, viscosity: 0.08, gravity: -2.2, damping: 0.05, curlNoiseFrequency: 0.18, isCagedSwarm: false },
+    physicsConfig: { maxParticles: GLOBAL_PARTICLE_CAP, velocityMax: 3.1, viscosity: 0.05, gravity: -2.2, damping: 0.035, curlNoiseFrequency: 0.18 },
   },
 ];
 
@@ -99,7 +99,7 @@ export const ORIGIN_PROFILE = {
   subtitle: "Expectation and expression at rest",
   visceralDescription: "Your breath and pulse move at their own gentle pace. Nothing is pulling you forward or holding you back. You are simply here, alive and settling.",
   biometricHUD: "BODY MAP // EVEN BREATH // STEADY PULSE // NEUTRAL WEIGHT",
-  physicsConfig: { maxParticles: GLOBAL_PARTICLE_CAP, velocityMax: 0.72, viscosity: 0.18, gravity: 0, damping: 0.08, curlNoiseFrequency: 0.06, isCagedSwarm: false },
+  physicsConfig: { maxParticles: GLOBAL_PARTICLE_CAP, velocityMax: 0.96, viscosity: 0.12, gravity: 0, damping: 0.055, curlNoiseFrequency: 0.06 },
 };
 
 export const MOOD_VISUALS: Record<string, MoodVisualConfig> = {
@@ -133,7 +133,7 @@ export function resolveProfile(x: number, y: number): MoodProfile | typeof ORIGI
   return profileByQuadrant.get("IV")!;
 }
 
-const interpolatedKeys: Array<Exclude<keyof MoodPhysicsConfig, "isCagedSwarm" | "maxParticles">> = [
+const interpolatedKeys: Array<Exclude<keyof MoodPhysicsConfig, "maxParticles">> = [
   "velocityMax", "viscosity", "gravity", "damping", "curlNoiseFrequency",
 ];
 
@@ -158,7 +158,6 @@ export function samplePhysics(x: number, y: number): MoodPhysicsConfig {
   return {
     ...result,
     maxParticles: GLOBAL_PARTICLE_CAP,
-    isCagedSwarm: profile.physicsConfig.isCagedSwarm,
   };
 }
 

@@ -15,7 +15,6 @@ export interface MoodPhysicsConfig {
   gravity: number;
   damping: number;
   curlNoiseFrequency: number;
-  isCagedSwarm: boolean;
 }
 
 export interface MoodProfile {
@@ -54,8 +53,8 @@ export interface MoodVisualConfig {
 }
 
 export const AXIS_TOLERANCE = 0.05;
-export const GLOBAL_PARTICLE_CAP = 15_000;
-export const PRELOADER_PARTICLE_COUNT = 25_000;
+export const GLOBAL_PARTICLE_CAP = 18_000;
+export const PRELOADER_PARTICLE_COUNT = 30_000;
 
 export const THEME_CONFIG: ProjectCortisolGlobalState["themeConfig"] = {
   baseBg: "#000000",

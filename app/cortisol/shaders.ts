@@ -6,11 +6,6 @@ export const POSITION_SHADER = /* glsl */ `
     vec4 position = texture2D(texturePosition, uv);
     vec3 velocity = texture2D(textureVelocity, uv).xyz;
     position.xyz += velocity * uDelta;
-
-    float distanceFromOrigin = length(position.xyz);
-    if (distanceFromOrigin > 7.5) {
-      position.xyz *= 7.5 / distanceFromOrigin;
-    }
     gl_FragColor = position;
   }
 `;
@@ -27,8 +22,7 @@ export const VELOCITY_SHADER = /* glsl */ `
   uniform float uNoiseFrequency;
   uniform float uEntropy;
   uniform float uScrollProgress;
-  uniform float uIsCagedSwarm;
-  uniform vec3 uCageBounds;
+  uniform float uScrollVelocity;
 
   vec3 curlField(vec3 p, float t, float f) {
     float scale = 1.2 + f * 4.5;
@@ -46,12 +40,6 @@ export const VELOCITY_SHADER = /* glsl */ `
     vec3 velocity = texture2D(textureVelocity, uv).xyz;
     vec3 origin = texture2D(uOriginTexture, uv).xyz;
 
-    if (uIsCagedSwarm > 0.5) {
-      if (abs(position.x) >= uCageBounds.x && velocity.x * sign(position.x) > 0.0) velocity.x *= -0.96;
-      if (abs(position.y) >= uCageBounds.y && velocity.y * sign(position.y) > 0.0) velocity.y *= -0.96;
-      if (abs(position.z) >= uCageBounds.z && velocity.z * sign(position.z) > 0.0) velocity.z *= -0.96;
-    }
-
     float respiratory = sin(6.28318530718 * uTime / 4.5);
     float vascular = cos(6.28318530718 * uTime / 1.2);
     float biologicalScale = 1.0 + 0.035 * respiratory * vascular;
@@ -63,19 +51,21 @@ export const VELOCITY_SHADER = /* glsl */ `
     float serenity = max(-uCoordinates.y, 0.0);
     float distanceToTarget = length(position - target);
 
-    vec3 force = (target - position) * (0.34 + serenity * 0.44 - disappointment * 0.2);
+    vec3 force = (target - position) * (0.16 + serenity * 0.25 - disappointment * 0.08);
     vec3 radial = normalize(position + vec3(0.0001));
     force += radial * fulfillment * (1.2 + anger * 3.8);
     force.y += fulfillment * (0.55 + fulfillment) - uGravity * 0.085;
 
-    vec3 curl = curlField(position, uTime, uNoiseFrequency);
-    force += curl * (0.08 + uEntropy * 1.55 + anger * 0.5);
-
-    if (uIsCagedSwarm > 0.5) {
-      vec3 cageRatio = abs(position) / uCageBounds;
-      float wallPressure = smoothstep(0.72, 1.0, max(cageRatio.x, max(cageRatio.y, cageRatio.z)));
-      force -= normalize(position + vec3(0.0001)) * wallPressure * 16.0;
-    }
+    vec3 generativeFlow = curlField(position, uTime, uNoiseFrequency);
+    generativeFlow += curlField(position * 1.73 + vec3(2.4, -1.7, 0.8), -uTime * 0.63, uNoiseFrequency * 0.62) * 0.48;
+    generativeFlow += curlField(position * 0.47 - vec3(1.2, 0.5, 2.1), uTime * 0.31, uNoiseFrequency * 1.4) * 0.24;
+    force += generativeFlow * (0.07 + uEntropy * 1.25 + anger * 0.42);
+    force += vec3(
+      sin(uTime * 0.37 + position.y * 0.22),
+      cos(uTime * 0.29 + position.z * 0.18),
+      sin(uTime * 0.23 - position.x * 0.2)
+    ) * (0.05 + serenity * 0.05);
+    force.y -= clamp(uScrollVelocity * 0.018, -0.42, 0.42);
 
     float trapped = anger * disappointment;
     float pressure = smoothstep(0.78, 1.0, sin(uTime * 3.2 + uv.x * 67.0 + uv.y * 41.0));
@@ -86,7 +76,7 @@ export const VELOCITY_SHADER = /* glsl */ `
     force.y -= smoothstep(0.2, 0.8, uScrollProgress) * 0.75;
 
     velocity += force * min(uDelta, 0.034);
-    float resistance = exp(-(uViscosity * 4.5 + uDamping * 5.0) * uDelta);
+    float resistance = exp(-(uViscosity * 3.2 + uDamping * 3.5) * uDelta);
     velocity *= resistance;
 
     float speed = length(velocity);
@@ -98,6 +88,7 @@ export const VELOCITY_SHADER = /* glsl */ `
 
 export const PARTICLE_VERTEX_SHADER = /* glsl */ `
   uniform sampler2D uPositionTexture;
+  uniform sampler2D uVelocityTexture;
   uniform float uTime;
   uniform float uLoadPhase;
   uniform float uScrollProgress;
@@ -107,12 +98,14 @@ export const PARTICLE_VERTEX_SHADER = /* glsl */ `
   attribute float particleIndex;
   varying float vEnergy;
   varying float vDepth;
+  varying vec2 vMotion;
+  varying float vMotionAmount;
 
   vec3 loadingSpiral() {
-    float index = particleIndex / 25000.0;
+    float index = particleIndex / 30000.0;
     float deceleration = exp(-0.05 * max(0.0, (uLoadPhase - 0.8) * 260.0));
-    float angle = index * 92.0 + uTime * 8.4 * deceleration;
-    float radius = 0.24 + pow(index, 0.58) * 3.8;
+    float angle = index * 104.0 + uTime * 6.8 * deceleration;
+    float radius = 0.2 + pow(index, 0.56) * 5.2;
     return vec3(cos(angle) * radius, sin(angle) * radius, 0.0);
   }
 
@@ -123,6 +116,7 @@ export const PARTICLE_VERTEX_SHADER = /* glsl */ `
       return;
     }
     vec3 simulated = texture2D(uPositionTexture, uv).xyz;
+    vec3 velocity = texture2D(uVelocityTexture, uv).xyz;
     vec3 spiral = loadingSpiral();
     float reveal = smoothstep(0.82, 1.0, uLoadPhase);
     float inversion = smoothstep(0.985, 1.0, uLoadPhase) * (1.0 - smoothstep(1.0, 1.08, uLoadPhase));
@@ -147,9 +141,15 @@ export const PARTICLE_VERTEX_SHADER = /* glsl */ `
     position.z -= smoothstep(0.2, 0.5, uScrollProgress) * 2.5;
 
     vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+    vec2 screenVelocity = (modelViewMatrix * vec4(velocity, 0.0)).xy;
+    float velocityMagnitude = length(velocity);
+    vMotion = normalize(screenVelocity + vec2(0.0001));
+    vMotionAmount = smoothstep(0.18, 4.0, velocityMagnitude);
     gl_Position = projectionMatrix * mvPosition;
     float expression = max(uCoordinates.y, 0.0);
-    gl_PointSize = clamp(uPointScale * (1.65 + expression * 1.6) / -mvPosition.z, 0.65, 3.8);
+    float basePointSize = uPointScale * (1.65 + expression * 1.6) / -mvPosition.z;
+    float shutterLength = min(20.0, 2.0 + velocityMagnitude * 3.1);
+    gl_PointSize = clamp(max(basePointSize, shutterLength * vMotionAmount), 0.65, 20.0);
     vEnergy = expression;
     vDepth = clamp((-mvPosition.z - 2.0) / 10.0, 0.0, 1.0);
   }
@@ -161,12 +161,18 @@ export const PARTICLE_FRAGMENT_SHADER = /* glsl */ `
   uniform float uOpacity;
   varying float vEnergy;
   varying float vDepth;
+  varying vec2 vMotion;
+  varying float vMotionAmount;
 
   void main() {
     vec2 p = gl_PointCoord - 0.5;
-    float radius = length(p);
-    float alpha = smoothstep(0.5, 0.04, radius);
-    float core = smoothstep(0.2, 0.0, radius);
+    float halfTrail = 0.48 * vMotionAmount;
+    float alongTrail = clamp(dot(p, vMotion), -halfTrail, halfTrail);
+    vec2 centeredShutterTrail = p - vMotion * alongTrail;
+    float radius = length(centeredShutterTrail);
+    float edge = mix(0.48, 0.11, vMotionAmount);
+    float alpha = smoothstep(edge, 0.018, radius);
+    float core = smoothstep(edge * 0.42, 0.0, radius);
     vec3 color = mix(uColorB, uColorA, core + (1.0 - vDepth) * 0.38);
     color += vec3(core * (0.35 + vEnergy * 0.65));
     gl_FragColor = vec4(color, alpha * uOpacity);
